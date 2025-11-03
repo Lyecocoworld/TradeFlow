@@ -1,6 +1,11 @@
 package unprotesting.com.github.data;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import java.io.Serializable;
+import java.lang.reflect.Type;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -19,9 +24,6 @@ import unprotesting.com.github.data.CollectFirst.CollectFirstSetting;
 import unprotesting.com.github.util.AutoTuneLogger;
 import unprotesting.com.github.util.Format;
 
-/**
- * The class that represents a shop.
- */
 @Builder
 @AllArgsConstructor
 public class Shop implements Serializable {
@@ -31,72 +33,53 @@ public class Shop implements Serializable {
     private static double M = 0.05;
     private static double Z = 1.75;
 
-    // History of buys for each time period.
+    @Getter
+    protected String name;
+    @Getter
     protected int[] buys;
-    // History of sells for each time period.
+    @Getter
     protected int[] sells;
-    // History of prices for each time period.
     @Getter
     protected double[] prices;
-    // The size of the historical data.
     @Getter
     protected int size;
-    // Whether the item is an enchantment
     @Getter
-    protected final boolean enchantment;
-    // The collect first setting for this shop
+    protected boolean enchantment;
     @Getter
     @Setter
     protected CollectFirst setting;
-    // The autosell data for this shop
     @Getter
     protected Map<UUID, Integer> autosell;
-    // The total buys for this shop
     @Getter
     protected int totalBuys;
-    // The total sells for this shop
     @Getter
     protected int totalSells;
-    // Whether the item is locked
     @Getter
     protected boolean locked;
-    // Whether to use a custom sell price difference
     protected double customSpd;
-    // Whether to use a custom maxVolatility
     @Getter
     protected double volatility;
-    // Whether to use a custom volatility
     @Getter
     protected double change;
-    // The maximum buys per time period
     @Getter
     protected int maxBuys;
-    // The maximum sells per time period
     @Getter
     protected int maxSells;
-    // The update rate of the item
     @Getter
     protected int updateRate;
-    // The time since the last update
     @Getter
     protected int timeSinceUpdate;
-    // The section this shop belongs to.
     @Getter
     protected String section;
-    // The recent buys for this item
     @Getter
     protected Map<UUID, Integer> recentBuys;
-    // The recent sells for this item
     @Getter
     protected Map<UUID, Integer> recentSells;
 
-    /**
-     * Constructor for the shop class.
-     *
-     * @param config        The configuration section for the shop.
-     * @param isEnchantment Whether the item is an enchantment.
-     */
-    protected Shop(ConfigurationSection config, String sectionName, boolean isEnchantment) {
+    public Shop() {}
+
+    protected Shop(String name, ConfigurationSection config, String sectionName, boolean isEnchantment) {
+        this.name = name;
         this.buys = new int[1];
         this.sells = new int[1];
         this.prices = new double[] { config.getDouble("price") };
@@ -110,12 +93,37 @@ public class Shop implements Serializable {
         this.setting = new CollectFirst(config.getString("collect-first", "none"));
         this.loadConfiguration(config, sectionName);
     }
+    
+    public Shop(String name, ResultSet rs, Gson gson) throws SQLException {
+        this.name = name;
+        this.enchantment = rs.getBoolean("enchantment");
+        this.locked = rs.getBoolean("locked");
+        this.volatility = rs.getDouble("volatility");
+        this.section = rs.getString("section");
 
-    /**
-     * Load the non serialized data from the config.
-     *
-     * @param config The config section.
-     */
+        Type mapType = new TypeToken<Map<UUID, Integer>>() {}.getType();
+        this.autosell = gson.fromJson(rs.getString("autosell"), mapType);
+        this.recentBuys = gson.fromJson(rs.getString("recent_buys"), mapType);
+        this.recentSells = gson.fromJson(rs.getString("recent_sells"), mapType);
+
+        this.buys = gson.fromJson(rs.getString("buys_history"), int[].class);
+        this.sells = gson.fromJson(rs.getString("sells_history"), int[].class);
+        this.prices = gson.fromJson(rs.getString("prices_history"), double[].class);
+        this.size = this.prices.length;
+        
+        // Default values for non-persistent fields
+        this.totalBuys = 0; // Or calculate if needed
+        this.totalSells = 0;
+        this.customSpd = -1;
+        this.change = 0;
+        this.maxBuys = -1;
+        this.maxSells = -1;
+        this.updateRate = 1;
+        this.timeSinceUpdate = 0;
+        this.setting = new CollectFirst("none");
+    }
+
+
     protected void loadConfiguration(ConfigurationSection config, String sectionName) {
         AutoTuneLogger logger = Format.getLog();
         locked = config.getBoolean("locked", false);
@@ -135,7 +143,6 @@ public class Shop implements Serializable {
         double startPrice = config.getDouble("price");
 
         if (startPrice != prices[0]) {
-            // Check if price in prices array
             boolean found = false;
             for (double price : prices) {
                 if (price == startPrice) {
@@ -155,54 +162,26 @@ public class Shop implements Serializable {
         }
     }
 
-    /**
-     * Get the buy count for the last time period.
-     *
-     * @return The buy count.
-     */
     public int getBuyCount() {
         return buys[size - 1];
     }
 
-    /**
-     * Get the sell count for the last time period.
-     *
-     * @return The sell count.
-     */
     public int getSellCount() {
         return sells[size - 1];
     }
 
-    /**
-     * Get the price for the last time period.
-     *
-     * @return The price.
-     */
     public double getPrice() {
         return prices[size - 1];
     }
 
-    /**
-     * Set the price for the last time period.
-     *
-     * @param price The price.
-     */
     public void setPrice(double price) {
         prices[size - 1] = price;
     }
 
-    /**
-     * Get the sell price.
-     */
     public double getSellPrice() {
         return getPrice() - getPrice() * getSpd() * 0.01;
     }
 
-    /**
-     * Add to the latest buy count.
-     *
-     * @param buyCount The additional buys.
-     */
     public void addBuys(UUID player, int buyCount) {
         AutoTuneLogger logger = Format.getLog();
         if (recentBuys.containsKey(player)) {
@@ -217,11 +196,6 @@ public class Shop implements Serializable {
         logger.finest("Updated at time period " + (size - 1));
     }
 
-    /**
-     * Add to the latest sell count.
-     *
-     * @param sellCount The additional sells.
-     */
     public void addSells(UUID player, int sellCount) {
         AutoTuneLogger logger = Format.getLog();
         if (recentSells.containsKey(player)) {
@@ -236,19 +210,10 @@ public class Shop implements Serializable {
         logger.finest("Updated at time period " + (size - 1));
     }
 
-    /**
-     * Clear the autosell data.
-     */
     public void clearAutosell() {
         autosell.clear();
     }
 
-    /**
-     * Increase the autosell count for a uuid.
-     *
-     * @param uuid  The uuid.
-     * @param count The count.
-     */
     public void addAutosell(UUID uuid, int count) {
         AutoTuneLogger logger = Format.getLog();
         if (autosell.containsKey(uuid)) {
@@ -260,13 +225,8 @@ public class Shop implements Serializable {
         }
     }
 
-    /**
-     * Calculates if a given player has unlocked this item.
-     *
-     * @return Whether the player has unlocked this item.
-     */
     public boolean isUnlocked(UUID player) {
-        if (Config.get().isEnableCollection()) {
+        if (!Config.get().isEnableCollection()) {
             return true;
         } else if (setting.getSetting().equals(CollectFirstSetting.SERVER)) {
             return setting.isFoundInServer();
@@ -277,9 +237,6 @@ public class Shop implements Serializable {
         }
     }
 
-    /**
-     * Clear the most recent buys/sells.
-     */
     public void clearRecentPurchases() {
         recentBuys.clear();
         recentSells.clear();
@@ -292,11 +249,6 @@ public class Shop implements Serializable {
         return Config.get().getSellPriceDifference();
     }
 
-    /**
-     * Create a new time period for the shop.
-     *
-     * @param price The new price for the time period.
-     */
     public void timePeriod(double price) {
         int[] newBuys = new int[size + 1];
         int[] newSells = new int[size + 1];
@@ -332,10 +284,7 @@ public class Shop implements Serializable {
         this.size++;
     }
 
-    /**
-     * Update the percentage change for the shop.
-     */
-    protected void updateChange() {
+    public void updateChange() {
         if (locked || size < 2) {
             return;
         }
@@ -345,9 +294,6 @@ public class Shop implements Serializable {
         this.change = (prices[size - 1] - prices[start]) / prices[start];
     }
 
-    /**
-     * Loads the buy vs sell strength for the shop.
-     */
     public double strength() {
         int x = 0;
         int y = 1;
@@ -368,9 +314,6 @@ public class Shop implements Serializable {
         return (buy - sell) / (buy + sell);
     }
 
-    /**
-     * Get the display name for this shop.
-     */
     protected static Component getDisplayName(String name, boolean isEnchantment) {
         name = name.toLowerCase();
 
