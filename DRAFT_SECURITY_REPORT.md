@@ -30,13 +30,22 @@
         *   The instantiation of `GuiCatalog` in `ShopGuiManager.java` has been updated to match the new constructor signature.
         *   These compilation issues are now resolved.
 
-4.  **`Database.areMapsReady()` returning `false` when MySQL is enabled:**
+4.  **`Database.areMapsReady()` returning `false` when MySQL is enabled (Resolved):**
     *   **Vulnerability:** The `CollectFirst` logic was always locking items because `Database.areMapsReady()` was returning `false` even when MySQL was enabled. This was due to the `shops` map in `unprotesting.com.github.data.Database` not being initialized when MySQL was active.
     *   **Severity:** High (Prevents core functionality of `CollectFirst` from working).
     *   **Location:** `unprotesting.com.github.data.Database.java`
     *   **Description:** The `initialize` method in `Database.java` did not correctly set the `shops` map when `plugin.isMySqlEnabled()` was true. The `shops` field was declared as `HTreeMap`, which is specific to MapDB, and was not being assigned the `loadedShops` from the `AutoTune` plugin when MySQL was in use.
     *   **Recommendation:** The `shops` field in `Database.java` has been changed to `Map<String, Shop>`. The `initialize` method now correctly assigns `plugin.getLoadedShops()` to `this.shops` when MySQL is enabled. The `createMaps()` method has been adjusted to cast the `db.hashMap` result to `Map<String, Shop>`. This issue is now resolved.
 
+5.  **Contradiction between `Shop.isUnlocked()` logs and GUI display:**
+    *   **Vulnerability:** Despite logs showing `Shop.isUnlocked()` returning `true` for `spruce_log` (due to `CollectFirstSetting: NONE`), the GUI still displays the item as locked with the "Collectez cet objet pour le débloquer" message.
+    *   **Severity:** High (Directly impacts user experience and expected functionality).
+    *   **Location:** `com.yourplugin.pricing.gui.GuiVariants.java`, `unprotesting.com.github.data.Shop.java`, `src/main/resources/shops.yml`, `src/main/resources/messages.yml`
+    *   **Description:** The `shops.yml` file confirms that `spruce_log` does not have an explicit `collect-first` setting, meaning it defaults to `NONE`. Logs from `Shop.isUnlocked()` confirm this and show it returning `true`. However, the GUI is still showing the `COLLECT_FIRST_LOCKED` message. This suggests a discrepancy in how `GuiVariants.lockState` is evaluating the lock status or how the GUI is interpreting it.
+    *   **Recommendation:** Added extensive `INFO` level logging to `GuiVariants.lockState` to trace the item ID, the `Shop` object's state, the result of `isUnlocked()`, and the final `LockReason` returned. This will help pinpoint the exact behavior within `GuiVariants.lockState` and resolve the contradiction.
+
 ### Current Status:
 
-The project now compiles successfully. The `AutoTuneLogger` has been fixed to correctly output `FINEST` level logs, and for immediate debugging, specific `FINEST` log calls in `Shop.java` and `Database.java` have been temporarily changed to `INFO` to ensure they appear in the server logs. The `Database.areMapsReady()` issue has been addressed. The next step is to deploy the updated plugin and gather new server logs to verify the `CollectFirst` logic.
+The project now compiles successfully. The `AutoTuneLogger` has been fixed to correctly output `FINEST` level logs, and for immediate debugging, specific `FINEST` log calls in `Shop.java` and `Database.java` have been temporarily changed to `INFO` to ensure they appear in the server logs. The `Database.areMapsReady()` issue has been addressed. Extensive logging has been added to `GuiVariants.lockState` to diagnose the contradiction between `Shop.isUnlocked()` logs and the GUI display.
+
+The next step is to deploy the updated plugin and gather new server logs to verify the `CollectFirst` logic and the behavior of `GuiVariants.lockState`.

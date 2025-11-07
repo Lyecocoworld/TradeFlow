@@ -1,5 +1,8 @@
 - [x] Await user to deploy the updated plugin, reproduce the issue, and provide the server console logs.
 - [x] Analyze the provided logs, specifically focusing on `[FINEST]` messages from `Shop.isUnlocked`, `Database.areMapsReady()`, and `Database.hasPlayerCollected()`, and the new GUI messages for locked items.
 - [x] Determine the exact values of `setting.getSetting()` for the problematic item and the return values of `Database.get().areMapsReady()` and `Database.get().hasPlayerCollected()` from the logs.
-- [ ] Pinpoint whether the "pas la permission" message is directly caused by the `isUnlocked` method's return value or by another access control mechanism.
-- [ ] Based on log analysis, implement the correct, non-placeholder logic for `areMapsReady()` and `hasPlayerCollected()` (if necessary), or further debug and correct the `CollectFirst` initialization and usage logic.
+- [x] Pinpoint whether the "pas la permission" message is directly caused by the `isUnlocked` method's return value or by another access control mechanism.
+- [x] Based on log analysis, implement the correct, non-placeholder logic for `areMapsReady()` and `hasPlayerCollected()` (if necessary), or further debug and correct the `CollectFirst` initialization and usage logic.
+- [x] Read `src/main/resources/shops.yml` to verify the `collect-first` setting for `spruce_log`.
+- [x] Read `src/main/resources/messages.yml` to check the messages for `PRICE_UNKNOWN` and `COLLECT_FIRST_LOCKED`.
+- [ ] Add more debug logging to `GuiVariants.lockState` to explicitly log the `LockReason` being returned.

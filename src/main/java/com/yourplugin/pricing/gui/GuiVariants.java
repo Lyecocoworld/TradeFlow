@@ -22,6 +22,9 @@ import java.util.logging.Logger;
  * Represents the sub-GUI displaying variants of a specific item family.
  * Allows players to view prices, buy/sell items, and navigate back to the main catalog.
  */
+import unprotesting.com.github.util.AutoTuneLogger;
+import unprotesting.com.github.util.Format;
+
 public class GuiVariants {
 
     private static final Logger LOGGER = Logger.getLogger(GuiVariants.class.getName());
@@ -180,18 +183,37 @@ public class GuiVariants {
      * @return The LockReason, or NONE if the item is available.
      */
     public static LockReason lockState(Player p, ItemId id, PriceService priceSvc, unprotesting.com.github.AutoTune plugin) {
+        AutoTuneLogger logger = Format.getLog();
+        logger.info("[DEBUG] GuiVariants.lockState: Checking lock state for item: " + id.getKey());
+
         Optional<Double> priceOpt = priceSvc.getPrice(id);
-        if (priceOpt.isEmpty() || priceOpt.get() == Double.POSITIVE_INFINITY) return LockReason.PRICE_UNKNOWN;
+        if (priceOpt.isEmpty() || priceOpt.get() == Double.POSITIVE_INFINITY) {
+            logger.info("[DEBUG] GuiVariants.lockState: Item " + id.getKey() + " returning PRICE_UNKNOWN.");
+            return LockReason.PRICE_UNKNOWN;
+        }
 
         // Retrieve the Shop object from the old system
         unprotesting.com.github.data.Shop shop = unprotesting.com.github.data.ShopUtil.getShop(plugin.getDatabase(), id.getKey(), true);
-        if (shop != null && !shop.isUnlocked(p.getUniqueId())) {
-            return LockReason.COLLECT_FIRST_LOCKED;
+        if (shop != null) {
+            logger.info("[DEBUG] GuiVariants.lockState: Shop object for " + id.getKey() + " found. Hashcode: " + shop.hashCode());
+            boolean unlocked = shop.isUnlocked(p.getUniqueId());
+            logger.info("[DEBUG] GuiVariants.lockState: shop.isUnlocked(" + p.getUniqueId() + ") for " + id.getKey() + " returned: " + unlocked);
+            if (!unlocked) {
+                logger.info("[DEBUG] GuiVariants.lockState: Item " + id.getKey() + " returning COLLECT_FIRST_LOCKED.");
+                return LockReason.COLLECT_FIRST_LOCKED;
+            }
+        } else {
+            logger.info("[DEBUG] GuiVariants.lockState: Shop object for " + id.getKey() + " is null.");
         }
 
-        if (!p.hasPermission("autotune.buy." + id.getKey())) return LockReason.NO_PERMISSION; // example
+
+        if (!p.hasPermission("autotune.buy." + id.getKey())) {
+            logger.info("[DEBUG] GuiVariants.lockState: Item " + id.getKey() + " returning NO_PERMISSION.");
+            return LockReason.NO_PERMISSION; // example
+        }
         // if (playerLevel(p) < neededLevel(id)) return LockReason.LEVEL_TOO_LOW;
         // if (!stockService.hasStock(id)) return LockReason.OUT_OF_STOCK;
+        logger.info("[DEBUG] GuiVariants.lockState: Item " + id.getKey() + " returning NONE.");
         return LockReason.NONE;
     }
 
