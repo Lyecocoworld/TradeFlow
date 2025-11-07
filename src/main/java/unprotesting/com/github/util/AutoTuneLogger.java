@@ -39,7 +39,7 @@ public class AutoTuneLogger {
      */
     public void log(@NotNull Level level, @NotNull String message, @NotNull Object param1) {
         if (shouldLog(level)) {
-            logger.log(Level.INFO, prefix(level, message), param1);
+            logger.log(level, prefix(level, message), param1);
         }
     }
 
@@ -52,7 +52,7 @@ public class AutoTuneLogger {
      */
     public void log(@NotNull Level level, @NotNull String message, Object... params) {
         if (shouldLog(level)) {
-            logger.log(Level.INFO, prefix(level, message), params);
+            logger.log(level, prefix(level, message), params);
         }
     }
 
@@ -61,7 +61,7 @@ public class AutoTuneLogger {
      */
     public void log(@NotNull Level level, @NotNull String message) {
         if (shouldLog(level)) {
-            logger.log(Level.INFO, prefix(level, message));
+            logger.log(level, prefix(level, message));
         }
     }
 
