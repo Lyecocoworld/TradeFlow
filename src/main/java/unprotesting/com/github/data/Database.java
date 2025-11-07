@@ -1,10 +1,10 @@
 package unprotesting.com.github.data;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -34,40 +34,53 @@ public class Database {
     private static Database instance;
 
     private DB db;
-    protected HTreeMap<String, Shop> shops;
+    protected Map<String, Shop> shops;
     protected HTreeMap<String, Transaction> transactions;
     protected HTreeMap<String, Loan> loans;
     protected HTreeMap<String, double[]> economyData;
+
     protected HashMap<String, Section> sections;
     protected HashMap<Pair<String, String>, Relation> relations;
 
-    public Database() {
-        instance = this;
-        AutoTune plugin = AutoTune.getInstance();
+    private static String k(UUID uuid, String itemKey) {
+        return uuid.toString() + "|" + itemKey.toLowerCase(Locale.ROOT);
+    }
 
+    public Database() {
+    }
+
+    public void initialize(AutoTune plugin) {
         if (!plugin.isMySqlEnabled()) {
             createDb(plugin.getDataFolder() + "/data.db");
             this.sections = new HashMap<>();
-            createMaps();
+            createMaps(); // This creates and populates the 'shops' map for MapDB
 
             acquireWriteLock();
             try {
-                loadShopDefaults();
-                updateChanges();
-                loadSectionData();
-                loadEconomyData();
-                CsvHandler.writePriceData();
+                loadSectionData(plugin, this);
+                loadShopDefaults(plugin, this);
+                updateChanges(plugin, this);
+                loadEconomyData(plugin, this);
+                AutoTune.getInstance().getLoadedEconomyData().putAll(this.economyData);
+                CsvHandler.writePriceData(this);
             } finally {
                 releaseWriteLock();
             }
-        } else {
+        } else { // MySQL is enabled
             this.sections = new HashMap<>();
-            loadSectionData(); // Sections are still loaded from yml
+            loadSectionData(plugin, this); // Sections are still loaded from yml
+            this.shops = plugin.getLoadedShops(); // Set shops to the loaded shops from AutoTune
         }
     }
 
+
+
     public static Database get() {
         return instance;
+    }
+
+    public static void setInstance(Database newInstance) {
+        instance = newInstance;
     }
 
     public void close() {
@@ -84,20 +97,20 @@ public class Database {
             plugin.getLoanData().loadAllLoans();
             plugin.getTransactionData().loadAllTransactions();
             plugin.getEconomyDataData().loadAllEconomyData();
-            loadSectionData(); // Reload sections from yml
+            loadSectionData(plugin, this); // Reload sections from yml
             updateRelations(); // Recalculate relations
             plugin.getLogger().info("Data reloaded from MySQL database.");
         } else {
             // Original MapDB reload logic
-            loadShopDefaults();
-            updateChanges();
-            loadSectionData();
-            loadEconomyData();
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, CsvHandler::writePriceData);
+            loadShopDefaults(plugin, this);
+            updateChanges(plugin, this);
+            loadSectionData(plugin, this);
+            loadEconomyData(plugin, this);
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> CsvHandler.writePriceData(this));
         }
     }
 
-    public void updateChanges() {
+    public void updateChanges(AutoTune plugin, Database database) {
         AutoTuneLogger logger = Format.getLog();
         for (String name : getShopNames()) {
             Shop shop = getShop(name, true);
@@ -184,40 +197,53 @@ public class Database {
     public Shop getShop(String s, boolean warn) {
         String item = s.toLowerCase();
         if (AutoTune.getInstance().isMySqlEnabled()) {
+            Format.getLog().fine(String.format("[DEBUG] Database.getShop(%s): Using MySQL.", item));
             Shop shop = AutoTune.getInstance().getLoadedShops().get(item);
             if (shop == null && warn) Format.getLog().severe("Could not find shop for " + item);
             return shop;
         }
 
-        if (shops.get(item) == null) {
-            if (warn) Format.getLog().severe("Could not find shop for " + item);
+        try {
+            Format.getLog().fine(String.format("[DEBUG] Database.getShop(%s): Using MapDB.", item));
+            Shop shop = shops.get(item);
+            if (shop == null && warn) {
+                Format.getLog().severe("Could not find shop for " + item);
+            }
+            return shop;
+        } catch (Exception e) {
+            Format.getLog().severe("Could not deserialize shop " + item + ". The data may be corrupted.");
             return null;
         }
-        return shops.get(item);
     }
 
     public Map<String, Shop> getShops() {
         if (AutoTune.getInstance().isMySqlEnabled()) {
+            Format.getLog().fine("[DEBUG] Database.getShops(): Using MySQL.");
             return AutoTune.getInstance().getLoadedShops();
         }
+        Format.getLog().fine("[DEBUG] Database.getShops(): Using MapDB.");
         return shops;
     }
 
     public void putShop(String key, Shop shop) {
         String name = key.toLowerCase();
         if (AutoTune.getInstance().isMySqlEnabled()) {
+            Format.getLog().fine(String.format("[DEBUG] Database.putShop(%s): Using MySQL. Price: %.2f", name, shop.getPrice()));
             AutoTune.getInstance().getLoadedShops().put(name, shop);
             AutoTune.getInstance().getShopData().saveShop(shop, name);
             return;
         }
+        Format.getLog().fine(String.format("[DEBUG] Database.putShop(%s): Using MapDB. Price: %.2f", name, shop.getPrice()));
         // The bug was here. No need for a containsKey check.
         shops.put(name, shop);
     }
 
     public String[] getShopNames() {
         if (AutoTune.getInstance().isMySqlEnabled()) {
+            Format.getLog().fine("[DEBUG] Database.getShopNames(): Using MySQL.");
             return AutoTune.getInstance().getLoadedShops().keySet().toArray(new String[0]);
         }
+        Format.getLog().fine("[DEBUG] Database.getShopNames(): Using MapDB.");
         return shops.keySet().toArray(new String[0]);
     }
 
@@ -262,7 +288,7 @@ public class Database {
         Format.getLog().config("Database initialized at " + location);
     }
 
-    private void loadSectionData() {
+    private void loadSectionData(AutoTune plugin, Database database) {
         ConfigurationSection config = Config.get().getSections();
         AutoTuneLogger logger = Format.getLog();
         if (config == null) {
@@ -272,42 +298,69 @@ public class Database {
         for (String key : config.getKeys(false)) {
             key = key.toLowerCase();
             ConfigurationSection section = config.getConfigurationSection(key);
-            sections.put(key, new Section(key, section));
+            sections.put(key, new Section(key, section, database));
             logger.fine("Section " + key + " loaded.");
         }
     }
 
-    private void loadShopDefaults() {
+    private void loadShopDefaults(AutoTune plugin, Database database) {
+        Format.getLog().info("[DEBUG] Database: Starting loadShopDefaults().");
         // This method is now only called for MapDB
         ConfigurationSection config = Config.get().getShops();
         AutoTuneLogger logger = Format.getLog();
-        for (String sectionName : config.getKeys(false)) {
-            ConfigurationSection sectionConfig = config.getConfigurationSection(sectionName);
 
-            for (String name : config.getConfigurationSection(sectionName).getKeys(false)) {
-                String key = name.toLowerCase();
-                Material material = Material.matchMaterial(key);
-                Enchantment enchantment = Enchantment.getByKey(NamespacedKey.minecraft(key));
-                boolean isEnchantment = enchantment != null;
-                ConfigurationSection section = sectionConfig.getConfigurationSection(name);
-
-                if (material == null && enchantment == null || section == null) {
-                    logger.warning("Invalid shop. " + key + " is not a valid material or enchantment.");
-                    continue;
-                }
-
-                if (shops.containsKey(key)) {
-                    Shop shop = getShop(key, true);
-                    shop.loadConfiguration(section, sectionName);
-                    putShop(key, shop);
-                    logger.finer("Shop " + key + " loaded.");
-                    continue;
-                }
-
-                putShop(key, new Shop(key, section, sectionName, isEnchantment));
-                logger.fine("New shop " + key + " in section " + shops.get(key).getSection());
-            }
+        if (config == null) {
+            logger.warning("'shops' block not found in shops.yml. No shops will be loaded.");
+            Format.getLog().info("[DEBUG] Database: shops config is null.");
+            return;
         }
+
+        Format.getLog().info(String.format("[DEBUG] Database: Found %d keys in shops config.", config.getKeys(false).size()));
+
+        for (String name : config.getKeys(false)) {
+            String key = name.toLowerCase();
+            ConfigurationSection section = config.getConfigurationSection(name);
+
+            if (section == null) {
+                Format.getLog().info(String.format("[DEBUG] Database: Section for %s is null.", key));
+                continue;
+            }
+
+            String sectionName = section.getString("section");
+            Section sectionObject = sections.get(sectionName.toLowerCase());
+            if (sectionName == null || sectionObject == null) {
+                logger.warning("Section for shop '" + key + "' is invalid or not found. Shop will not be loaded.");
+                Format.getLog().info(String.format("[DEBUG] Database: Section for %s is invalid or not found.", key));
+                continue;
+            }
+
+            Material material = Material.matchMaterial(key);
+            Enchantment enchantment = Enchantment.getByKey(NamespacedKey.minecraft(key));
+            boolean isEnchantment = enchantment != null;
+
+            if (material == null && enchantment == null) {
+                logger.warning("Invalid shop. " + key + " is not a valid material or enchantment.");
+                Format.getLog().info(String.format("[DEBUG] Database: %s is not a valid material or enchantment.", key));
+                continue;
+            }
+
+            if (shops.containsKey(key)) {
+                Shop shop = getShop(key, true);
+                shop.loadConfiguration(section, sectionName);
+                putShop(key, shop);
+                sectionObject.getShops().put(key, shop);
+                logger.finer("Shop " + key + " loaded into section " + sectionName);
+                Format.getLog().info(String.format("[DEBUG] Database: Updated existing shop %s.", key));
+                continue;
+            }
+
+            Shop shop = Shop.fromConfig(key, section, sectionName, isEnchantment);
+            putShop(key, shop);
+            sectionObject.getShops().put(key, shop);
+            logger.fine("New shop " + key + " in section " + sectionName);
+            Format.getLog().info(String.format("[DEBUG] Database: Created new shop %s.", key));
+        }
+        Format.getLog().info(String.format("[DEBUG] Database: Finished loadShopDefaults(). Total shops in map: %d", shops.size()));
     }
 
     public Map<String, double[]> getEconomyData() {
@@ -326,7 +379,7 @@ public class Database {
         economyData.put(key, value);
     }
 
-    private void loadEconomyData() {
+    private void loadEconomyData(AutoTune plugin, Database database) {
         Map<String, double[]> currentEconData = getEconomyData();
         if (currentEconData != null && currentEconData.isEmpty()) {
             for (String key : ECONOMY_DATA_KEYS) {
@@ -367,7 +420,8 @@ public class Database {
 
     private void createMaps() {
         AutoTuneLogger logger = Format.getLog();
-        this.shops = db.hashMap("shops")
+        logger.info("[DEBUG] Database.createMaps(): Starting map initialization.");
+        this.shops = (Map<String, Shop>) db.hashMap("shops")
                 .keySerializer(new SerializerCompressionWrapper<>(Serializer.STRING))
                 .valueSerializer(new ShopSerializer())
                 .createOrOpen();
@@ -387,6 +441,7 @@ public class Database {
                 .valueSerializer(Serializer.DOUBLE_ARRAY)
                 .createOrOpen();
         logger.fine("Loaded economy data map.");
+
         this.relations = new HashMap<>();
     }
 
@@ -404,5 +459,22 @@ public class Database {
 
     public static void releaseWriteLock() {
         lock.writeLock().unlock();
+    }
+
+    public boolean areMapsReady() {
+        AutoTuneLogger logger = Format.getLog();
+        boolean ready = shops != null;
+        logger.info(String.format("[DEBUG] Database.areMapsReady(): shops != null is %b", ready));
+        return ready;
+    }
+
+    public boolean hasPlayerCollected(UUID player, String itemName) {
+        AutoTuneLogger logger = Format.getLog();
+        // Placeholder implementation for now.
+        // This would typically involve checking player data for collected items.
+        // For now, assume player has collected the item.
+        boolean collected = true; // Always true for now
+        logger.info(String.format("[DEBUG] Database.hasPlayerCollected(%s, %s): returning %b (placeholder)", player, itemName, collected));
+        return collected;
     }
 }
