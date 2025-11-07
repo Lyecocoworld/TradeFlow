@@ -5,4 +5,7 @@
 - [x] Based on log analysis, implement the correct, non-placeholder logic for `areMapsReady()` and `hasPlayerCollected()` (if necessary), or further debug and correct the `CollectFirst` initialization and usage logic.
 - [x] Read `src/main/resources/shops.yml` to verify the `collect-first` setting for `spruce_log`.
 - [x] Read `src/main/resources/messages.yml` to check the messages for `PRICE_UNKNOWN` and `COLLECT_FIRST_LOCKED`.
-- [ ] Add more debug logging to `GuiVariants.lockState` to explicitly log the `LockReason` being returned.
+- [x] Add more debug logging to `GuiVariants.lockState` to explicitly log the `LockReason` being returned.
+- [x] Read `src/main/resources/config.yml` to verify the default `collect-first` setting.
+- [x] Modify `Shop.fromConfig` in `unprotesting.com.github.data.Shop.java` to use the global default `collect-first` setting from `Config.get().getCollectFirstDefault()` if not specified in `shops.yml`.
+- [x] Add `getCollectFirstDefault()` method to `unprotesting.com.github.config.Config.java` that reads the `access.collect-first.default` setting from the configuration file and returns it as a `CollectFirstSetting` enum.

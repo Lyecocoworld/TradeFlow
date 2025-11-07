@@ -400,7 +400,7 @@ public class Shop implements Serializable {
         }
 
         double startPrice = config.getDouble("price");
-        String collectFirstSettingString = config.getString("collect-first", "NONE"); // Default to NONE
+        String collectFirstSettingString = config.getString("collect-first", Config.get().getCollectFirstDefault().name());
 
         Shop shop = Shop.builder()
                 .name(name)
