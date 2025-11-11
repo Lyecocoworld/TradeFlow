@@ -309,30 +309,28 @@ public final class IfGuiService implements GuiService {
     private void openWithFrame(@NotNull Player player, @NotNull View view) {
         Runnable openTask = () -> {
             try {
-                Class<?> frameClass = Class.forName("me.devnatan.inventoryframework.ViewFrame");
-                Object frame = null;
-                for (java.lang.reflect.Constructor<?> ctor : frameClass.getDeclaredConstructors()) {
-                    Class<?>[] params = ctor.getParameterTypes();
-                    try {
-                        ctor.setAccessible(true); // Allow access to private constructors
-                        if (params.length == 1 && org.bukkit.plugin.Plugin.class.isAssignableFrom(params[0])) {
-                            frame = ctor.newInstance(plugin);
-                            break;
-                        }
-                    } catch (Throwable ignored) {
-                    }
+                Class<?> rf = Class.forName("me.devnatan.inventoryframework.runtime.InventoryFramework");
+                Object runtime = null;
+                try {
+                    // Try getInstance() first
+                    java.lang.reflect.Method getInstanceMethod = rf.getMethod("getInstance");
+                    runtime = getInstanceMethod.invoke(null);
+                } catch (NoSuchMethodException e) {
+                    // If getInstance() not found, try create(Plugin)
+                    java.lang.reflect.Method createMethod = rf.getMethod("create", org.bukkit.plugin.Plugin.class);
+                    runtime = createMethod.invoke(null, plugin);
                 }
-                if (frame == null) {
-                    throw new IllegalStateException("No suitable ViewFrame constructor found");
+                if (runtime == null) {
+                    throw new IllegalStateException("No suitable InventoryFramework instance found");
                 }
-                java.lang.reflect.Method withMethod = frameClass.getDeclaredMethod("with", View.class);
-                withMethod.setAccessible(true);
-                withMethod.invoke(frame, view);
-                frameClass.getMethod("register").invoke(frame);
-                // Try to find an an open-like method reflectively
+                java.lang.reflect.Method withMethod = runtime.getClass().getMethod("with", View.class);
+                withMethod.invoke(runtime, view);
+                java.lang.reflect.Method registerMethod = runtime.getClass().getMethod("register");
+                registerMethod.invoke(runtime);
+                // Try to find an an open-like method reflectively on the runtime object
                 java.lang.reflect.Method chosen = null;
                 Object[] args = null;
-                for (java.lang.reflect.Method m : frameClass.getDeclaredMethods()) {
+                for (java.lang.reflect.Method m : runtime.getClass().getDeclaredMethods()) { // Changed frameClass to runtime.getClass()
                     if (!m.getName().toLowerCase().contains("open")) continue;
                     Class<?>[] p = m.getParameterTypes();
                     if (p.length == 3) {
@@ -342,9 +340,9 @@ public final class IfGuiService implements GuiService {
                         }
                     }
                 }
-                if (chosen == null) throw new NoSuchMethodException("No suitable open method on ViewFrame");
+                if (chosen == null) throw new NoSuchMethodException("No suitable open method on InventoryFramework runtime"); // Changed error message
                 chosen.setAccessible(true);
-                chosen.invoke(frame, args);
+                chosen.invoke(runtime, args); // Changed frame to runtime
             } catch (Throwable t) {
                 try {
                     player.sendMessage("Failed to open GUI.");
