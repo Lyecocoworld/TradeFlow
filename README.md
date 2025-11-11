@@ -9,7 +9,7 @@ It synchronizes **prices, stocks, and transactions** across multiple servers in 
 ## ⚙️ Overview
 
 Designed for **Paper**, **Folia**, and **Velocity** environments, TradeFlow combines **local caching** with **distributed database synchronization**  
-(**MySQL + MapDB + optional Redis**) to ensure **smooth, safe, and consistent** data flow across your servers.
+(**MySQL + MapDB**) to ensure **smooth, safe, and consistent** data flow across your servers.
 
 The system continuously adapts to player activity, crafting recipes, and market volatility,  
 bringing your Minecraft economy to life — dynamic, self-regulating, and fair.
