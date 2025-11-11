@@ -1,70 +1,106 @@
-# TradeFlow
+# 💱 TradeFlow  
+### Cross-Server Dynamic Economy System for Minecraft
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Lyecocoworld/TradeFlow/maven.yml?branch=master)
-![GitHub issues](https://img.shields.io/github/issues/Lyecocoworld/TradeFlow)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/Lyecocoworld/TradeFlow)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/Lyecocoworld/TradeFlow)
-[![Discord](https://img.shields.io/discord/748222485975269508.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bNVVPe5)
+**TradeFlow** is one of the only *cross-server dynamic economy systems* ever built for Minecraft.  
+It synchronizes **prices, stocks, and transactions** across multiple servers in real time — creating a **unified, reactive market** shared by your entire network.
 
-> A Powerful Minecraft Automatic-Economy Plugin for `1.20.4` with many features!
+---
 
-## :star: Overview
+## ⚙️ Overview
 
-*TradeFlow is a Minecraft plugin that allows you to create an automated economy for your server. Prices of items will be automatically adjusted based on supply and demand. When an item is purchased by many players but sold by few, TradeFlow will raise the price to lower demand/increase supply and vice versa. TradeFlow fixes a critical problem in Minecraft server economies and provides a better experience for players and servers. You can check out our feature set below.*
+Designed for **Paper**, **Folia**, and **Velocity** environments, TradeFlow combines **local caching** with **distributed database synchronization**  
+(**MySQL + MapDB**) to ensure **smooth, safe, and consistent** data flow across your servers.
 
-## :heavy_check_mark: Features
+The system continuously adapts to player activity, crafting recipes, and market volatility,  
+bringing your Minecraft economy to life — dynamic, self-regulating, and fair.
 
-- :ballot_box_with_check: `Advanced automatic pricing model based on supply and demand`
-- :ballot_box_with_check: `Configurable GUI shop, with positioning and naming options`
-- :ballot_box_with_check: `Easy selling panel to sell items quickly`
-- :ballot_box_with_check: `Automatic selling, configurable player side`
-- :ballot_box_with_check: `Fully supports all enchantments and items`
-- :ballot_box_with_check: `Stored detailed history of transactions`
-- :ballot_box_with_check: `Exploit protection with max-buys/sells, volatility settings, and more`
-- :ballot_box_with_check: `Limit player's to only be able to purchase items they have collected before`
-- :ballot_box_with_check: `Advanced loaning with interest settings`
-- :ballot_box_with_check: `Integrated web-server for viewing price information`
-- :ballot_box_with_check: `Calculates GDP, debt, inflation and more`
-- :ballot_box_with_check: `Incredibly fast data collection and creation with corruption protection`
-- :ballot_box_with_check: `All messages are configurable`
-- :ballot_box_with_check: `Tutorial to help new players`
-- :ballot_box_with_check: `And much, much more...`
+---
 
-## :question: Why use TradeFlow
+## 🧩 Core Features
 
-TradeFlow identifies and fixes a significant problem in Minecraft servers that has remained underdeveloped and ignored for too long. This issue is the poor implementation of an economy and markets into Minecraft.
+### 📊 Dynamic Auto-Pricing Engine
+Automatically adjusts item prices according to:
+- Player buying and selling behavior  
+- Crafting and production costs  
+- Volatility, elasticity, and resistance models  
 
-Previous solutions that allow for trading between players have lacked flexibility, player engagement, and realism. These issues are due to server economy plugins that cannot adapt to the speed at which the economy in Minecraft changes. We designed TradeFlow with this in mind. By automating the price-setting process, server admins can sit back and watch the prices fluctuate as the supply and demand of items bounce back and forth.
+> Every transaction shapes the market.
 
-Not only does this assist administrators in managing a server's economy, but it also allows the server players to engage with the economy more rigorously. We have strenuously tested TradeFlow to be fit for any environment and created systems designed to assist server admins in building the best economy possible for the specific needs of their server. TradeFlow is a powerful and highly customizable plugin that has a feature set rich enough to satisfy any server. We at TradeFlow are passionate and optimistic about Minecraft plugin development and building a community that loves Minecraft and economics!
+---
 
-## :computer: Usage
+### 🌍 Cross-Server Economy
+Keep your economy consistent across all servers and worlds:
+- Shared prices, stocks, and player collections  
+- Real-time synchronization through MySQL or Redis  
+- Ideal for large-scale Paper or Velocity networks  
 
-### :clipboard: Server setup
+> One market. Multiple worlds. Full synchronization.
 
-1. Download the latest version of TradeFlow from the [releases](https://github.com/Lyecocoworld/TradeFlow/releases) tab on Github. Development versions can be found under the [actions](https://github.com/Lyecocoworld/TradeFlow/actions) tab on Github (where each commit produces a build artifact which is the latest version of the plugin).
-2. Please use [Paper](https://papermc.io/) or a fork of Paper as your server software.
-3. Make sure the required dependencies are installed ([Vault](https://www.spigotmc.org/resources/vault.34315/) and an economy plugin such as [Essentials](https://essentialsx.net))
-4. Put the `.jar` files in the `/plugins` folder of your server.
-5. Start/restart the server.
-6. Edit your configuration settings in `config.yml`, `shops.yml` and `messages.yml`.
-7. Restart the server again and TradeFlow will be running with all your settings configured.
+---
 
-### :hammer: Building from source
+### 🧱 Collect-First Access System
+Control how items are unlocked:
+- **PLAYER** → Each player must collect the item once  
+- **SERVER** → Unlocked when anyone obtains it  
+- **NONE** → Always available  
 
-1. Clone the project to a local directory using `git clone https://github.com/Lyecocoworld/TradeFlow.git`.
-2. Run `cd TradeFlow` to enter the TradeFlow folder.
-3. Run `./gradlew build` to build the project using Gradle.
-4. Navigate to the `/builds/libs/` directory and `TradeFlow-0.x.x` will be there if the build was successful.
+> Add a layer of progression and discovery to your shop system.
 
-### :sparkles: Contributing to the project
+---
 
-Feel free to create a fork of the repository and open a pull request to contribute. If you have any serious issues please report them on the issues tab. For other problems please use the discord below. Please respect the license.
+### ⚙️ Global Stock Management
+Limit and reset market availability dynamically:
+- Per-item stock caps (daily, weekly, or monthly)  
+- Auto-reset scheduler built-in  
+- Configurable per category or section  
 
-## :bell: Join the community
+> Simulate scarcity and realistic market pressure.
 
-> [![Discord](https://img.shields.io/discord/748222485975269508.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bNVVPe5)
->
-> :email: *<unprotesting.email@gmail.com>*
->
-> :calling: **Unprotesting#3616**
+---
+
+### 💾 Hybrid Database System
+Reliable and high-performance storage powered by:
+- **MapDB** for local caching  
+- **MySQL** for distributed persistence  
+- Optional **Redis** for real-time event broadcasting  
+
+> Async by design, resilient by architecture.
+
+---
+
+### 🧩 Modular & Extensible Design
+Built for developers and advanced networks:
+- Clean API for integrations and bots  
+- Custom price engines and access logic  
+- Async hooks and scalable data layers  
+
+> Extend, tweak, and tune TradeFlow for your unique economy.
+
+---
+
+## 🌐 Result
+
+TradeFlow turns your Minecraft network into a **living economic ecosystem** —  
+**balanced**, **reactive**, and **completely player-driven**.  
+From small servers to cross-network infrastructures, TradeFlow ensures a coherent economy everywhere.
+
+---
+
+### 💼 Example Use-Cases
+- Multi-world survival servers with one shared market  
+- Faction or city servers with scarcity & inflation  
+- Roleplay networks using Collect-First progression  
+- Trading hubs with dynamic, self-balancing prices  
+
+---
+
+### 🧱 Requirements
+- Java 17 +  
+- Paper / Folia 1.20 – 1.21 compatible  
+- Optional: MySQL (recommended) + Redis (for cross-server live sync)
+
+---
+
+### 💬 Summary
+> **TradeFlow** — the heartbeat of your Minecraft economy.  
+> Cross-server, dynamic, scalable, and truly alive.
