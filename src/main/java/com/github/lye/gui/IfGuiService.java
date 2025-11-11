@@ -309,53 +309,76 @@ public final class IfGuiService implements GuiService {
     private void openWithFrame(@NotNull Player player, @NotNull View view) {
         Runnable openTask = () -> {
             try {
-                Class<?> rf = Class.forName("me.devnatan.inventoryframework.runtime.InventoryFramework");
-                Object runtime = null;
+                Object frame = null;
+                Class<?> frameClass = null;
+                // Try runtime factory first
                 try {
-                    // Try getInstance() first
-                    java.lang.reflect.Method getInstanceMethod = rf.getDeclaredMethod("getInstance");
-                    getInstanceMethod.setAccessible(true);
-                    runtime = getInstanceMethod.invoke(null);
-                } catch (NoSuchMethodException e) {
-                    // If getInstance() not found, try create(Plugin)
-                    try {
-                        java.lang.reflect.Method createMethod = rf.getDeclaredMethod("create", org.bukkit.plugin.Plugin.class);
-                        createMethod.setAccessible(true);
-                        runtime = createMethod.invoke(null, plugin);
-                    } catch (NoSuchMethodException ignored) {
-                        // If neither getInstance nor create(Plugin) are found, runtime remains null
+                    Class<?> rf = Class.forName("me.devnatan.inventoryframework.runtime.InventoryFramework");
+                    for (java.lang.reflect.Method m : rf.getDeclaredMethods()) {
+                        if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+                        String n = m.getName();
+                        if (!(n.equalsIgnoreCase("getInstance") || n.equalsIgnoreCase("create"))) continue;
+                        m.setAccessible(true);
+                        try {
+                            if (m.getParameterCount() == 0) { frame = m.invoke(null); frameClass = rf; break; }
+                            if (m.getParameterCount() == 1 && org.bukkit.plugin.Plugin.class.isAssignableFrom(m.getParameterTypes()[0])) { frame = m.invoke(null, plugin); frameClass = rf; break; }
+                        } catch (Throwable ignored) {}
+                    }
+                } catch (Throwable ignored) {}
+
+                // Fallback to ViewFrame(Plugin) or no-arg
+                if (frame == null) {
+                    Class<?> vf = Class.forName("me.devnatan.inventoryframework.ViewFrame");
+                    for (java.lang.reflect.Constructor<?> ctor : vf.getDeclaredConstructors()) {
+                        ctor.setAccessible(true);
+                        try {
+                            if (ctor.getParameterCount() == 1 && org.bukkit.plugin.Plugin.class.isAssignableFrom(ctor.getParameterTypes()[0])) { frame = ctor.newInstance(plugin); frameClass = vf; break; }
+                            if (ctor.getParameterCount() == 0) { frame = ctor.newInstance(); frameClass = vf; break; }
+                        } catch (Throwable ignored) {}
                     }
                 }
-                if (runtime == null) {
-                    throw new IllegalStateException("No suitable InventoryFramework instance found");
-                }
-                java.lang.reflect.Method withMethod = runtime.getClass().getMethod("with", View.class);
-                withMethod.invoke(runtime, view);
-                java.lang.reflect.Method registerMethod = runtime.getClass().getMethod("register");
-                registerMethod.invoke(runtime);
-                // Try to find an an open-like method reflectively on the runtime object
-                java.lang.reflect.Method chosen = null;
-                Object[] args = null;
-                for (java.lang.reflect.Method m : runtime.getClass().getDeclaredMethods()) { // Changed frameClass to runtime.getClass()
-                    if (!m.getName().toLowerCase().contains("open")) continue;
+
+                if (frame == null || frameClass == null) throw new IllegalStateException("No IF frame available");
+
+                // with(view): parameter may be View/RootView/PlatformView
+                try {
+                    java.lang.reflect.Method with = null;
+                    for (java.lang.reflect.Method m : frameClass.getDeclaredMethods()) {
+                        if (!m.getName().equalsIgnoreCase("with")) continue;
+                        if (m.getParameterCount() != 1) continue;
+                        Class<?> pt = m.getParameterTypes()[0];
+                        if (pt.isAssignableFrom(view.getClass())) { with = m; break; }
+                    }
+                    if (with == null) { with = frameClass.getDeclaredMethod("with", View.class); }
+                    with.setAccessible(true);
+                    with.invoke(frame, view);
+                } catch (Throwable ignored) {}
+
+                // register() may not exist; ignore if absent
+                try { java.lang.reflect.Method reg = frameClass.getDeclaredMethod("register"); reg.setAccessible(true); reg.invoke(frame); } catch (Throwable ignored) {}
+
+                // Open: support (Class, Map, Object) and (Map, Class, Object)
+                java.util.Map<String, Object> viewers = java.util.Collections.singletonMap(player.getUniqueId().toString(), player);
+                java.lang.reflect.Method chosen = null; Object[] args = null;
+                for (java.lang.reflect.Method m : frameClass.getDeclaredMethods()) {
+                    String n = m.getName().toLowerCase();
+                    if (!n.contains("open")) continue;
                     Class<?>[] p = m.getParameterTypes();
-                    if (p.length == 3) {
-                        // pattern: (Class, Player, Object)
-                        if (Class.class.isAssignableFrom(p[0]) && Player.class.isAssignableFrom(p[1])) {
-                            chosen = m; args = new Object[]{ view.getClass(), player, null }; break;
-                        }
+                    m.setAccessible(true);
+                    // Try pattern: (Class, Player, Object)
+                    if (p.length == 3 && Class.class.isAssignableFrom(p[0]) && Player.class.isAssignableFrom(p[1])) {
+                        chosen = m; args = new Object[]{ view.getClass(), player, null }; break;
+                    }
+                    // Try pattern: (Class, Collection<? extends Player>, Object)
+                    if (p.length == 3 && Class.class.isAssignableFrom(p[0]) && java.util.Collection.class.isAssignableFrom(p[1])) {
+                        chosen = m; args = new Object[]{ view.getClass(), java.util.Collections.singletonList(player), null }; break;
                     }
                 }
-                if (chosen == null) throw new NoSuchMethodException("No suitable open method on InventoryFramework runtime"); // Changed error message
-                chosen.setAccessible(true);
-                chosen.invoke(runtime, args); // Changed frame to runtime
+                if (chosen == null) throw new NoSuchMethodException("No open/internalOpen method found on frame");
+                chosen.invoke(frame, args);
             } catch (Throwable t) {
-                try {
-                    player.sendMessage("Failed to open GUI.");
-                } catch (Throwable ignoredMsg) {}
-                try {
-                    plugin.getLogger().log(java.util.logging.Level.SEVERE, "IF view open failed", t);
-                } catch (Throwable ignoredLog) {}
+                try { player.sendMessage("Failed to open GUI."); } catch (Throwable ignoredMsg) {}
+                try { plugin.getLogger().log(java.util.logging.Level.SEVERE, "IF view open failed", t); } catch (Throwable ignoredLog) {}
             }
         };
         try {
