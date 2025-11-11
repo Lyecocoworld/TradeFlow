@@ -24,9 +24,9 @@ public class GuiCatalog {
     private final FamilyRegistry familyRegistry;
     private final PriceService priceService;
     private final GuiVariants.Factory guiVariantsFactory; // Factory to create GuiVariants instances
-    private final unprotesting.com.github.config.Config config;
+    private final com.github.lye.config.Config config;
 
-    public GuiCatalog(unprotesting.com.github.AutoTune plugin, FamilyRegistry familyRegistry, PriceService priceService, unprotesting.com.github.config.Config config) {
+    public GuiCatalog(com.github.lye.TradeFlow plugin, FamilyRegistry familyRegistry, PriceService priceService, com.github.lye.config.Config config) {
         this.familyRegistry = familyRegistry;
         this.priceService = priceService;
         this.config = config;
@@ -39,7 +39,7 @@ public class GuiCatalog {
      */
     public void open(Player player) {
         // Create a Bukkit Inventory
-        Inventory inventory = Bukkit.createInventory(null, 54, "Auto-Tune Families");
+        Inventory inventory = Bukkit.createInventory(null, 54, "TradeFlow Families");
 
         List<Family> families = familyRegistry.getAllFamilies();
         families.sort(FamilyRegistry.FAMILY_COMPARATOR);

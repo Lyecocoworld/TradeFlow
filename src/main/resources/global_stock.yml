@@ -1,0 +1,3 @@
+# This file stores the current sales counts for items with a global stock limit.
+# It is used when the server is not connected to a MySQL database.
+# You should not need to edit this file manually.

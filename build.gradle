@@ -3,7 +3,7 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-group 'unprotesting.com.github'
+group 'com.github.lye'
 version '0.14.4'
 
 ext {
@@ -13,7 +13,7 @@ ext {
     paperMCVersion = '1.20.4-R0.1-SNAPSHOT'
     bstatsVersion = '3.0.2'
     mapdbVersion = '3.1.0'
-    ifVersion = '0.10.13'
+    ifVersion = '0.11.5'
     vaultVersion = '1.7.1'
 }
 
@@ -26,13 +26,19 @@ java {
 repositories {
     mavenCentral()
     maven { url 'https://jitpack.io' }
-    maven { url 'https://papermc.io/repo/repository/maven-public/' }
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
 }
 
 dependencies {
     implementation "org.bstats:bstats-bukkit:$bstatsVersion"
     implementation "org.mapdb:mapdb:$mapdbVersion"
     implementation "com.github.stefvanschie.inventoryframework:IF:$ifVersion"
+    implementation "mysql:mysql-connector-java:8.0.33"
+    implementation "com.zaxxer:HikariCP:5.0.1"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.15.2"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2"
+    implementation "com.fasterxml.jackson.module:jackson-module-parameter-names:2.15.2"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.15.2"
     
     compileOnly "net.kyori:adventure-text-minimessage:$adventureVersion"
     compileOnly "net.kyori:adventure-api:$adventureVersion"
@@ -42,21 +48,27 @@ dependencies {
     compileOnly "org.eclipse.jetty:jetty-server:$jettyVersion"
     compileOnly "org.eclipse.jetty:jetty-servlet:$jettyVersion"
 
+    compileOnly "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok:$lombokVersion"
 }
 
 shadowJar {
 
-    relocate "org.bstats", "unprotesting.com.github.bstats"
-    relocate "org.mapdb", "unprotesting.com.github.mapdb"
-    relocate "com.github.stefvanschie.inventoryframework", "unprotesting.com.github.inventoryframework"
+    relocate "org.bstats", "com.github.lye.bstats"
+    relocate "org.mapdb", "com.github.lye.mapdb"
+    relocate "com.github.stefvanschie.inventoryframework", "com.github.lye.inventoryframework"
+    relocate "com.zaxxer.hikari", "com.github.lye.hikari"
+    relocate "com.mysql", "com.github.lye.mysql"
+    relocate "com.fasterxml.jackson", "com.github.lye.libs.jackson"
 
-    archiveBaseName.set('Auto-Tune')
+    archiveBaseName.set('TradeFlow')
     archiveVersion.set(version)
     archiveClassifier.set(null)
     archiveAppendix.set(null)
 
-    minimize()
+    minimize {
+        exclude(dependency("mysql:mysql-connector-java:8.0.33"))
+    }
 }
 
 artifacts {

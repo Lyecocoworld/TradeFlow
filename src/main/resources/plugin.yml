@@ -1,8 +1,9 @@
-main: unprotesting.com.github.AutoTune
-name: Auto-Tune
-description: "The Auto-Tune plugin is an economy plugin that automatically regulates prices based on supply and demand."
-author: "Unprotesting"
-version: "0.14.3"
+main: unprotesting.com.github.TradeFlow
+folia-supported: true
+name: TradeFlow
+description: "TradeFlow is a dynamic economy plugin that regulates prices based on supply and demand."
+author: "Lye"
+version: "0.14.4"
 depend:
   - "Vault"
 libraries:
@@ -10,45 +11,72 @@ libraries:
   - "org.eclipse.jetty:jetty-servlet:11.0.19"
 api-version: 1.13
 api: "1.13"
-website: "https://github.com/Unprotesting/Auto-Tune"
-prefix: "Auto-Tune"
+website: "https://github.com/Unprotesting/TradeFlow"
+prefix: "TradeFlow"
 commands:
-  shop:
-    description: "Opens the shop."
-    usage: "/shop <section-name>"
-    permission: "autotune.shop"
-    permission-message: "You don't have permission to use this command."
-  sell:
+  tfmarket:
+    description: Market command.
+    usage: /<command>
+    permission: tradeflow.command.market
+    permission-message: You don't have permission to use this command.
+  tfsell:
     description: "Opens the sell menu."
-    usage: "/sell"
-    permission: "autotune.sell"
+    usage: "/tfsell"
+    permission: "tradeflow.sell"
     permission-message: "You don't have permission to use this command."
-  autosell:
-    description: "Opens the autosell menu."
-    usage: "/autosell"
-    permission: "autotune.autosell"
-    permission-message: "You don't have permission to use this command."
-  loan:
+  tfautotrade:
+    description: Autotrade command.
+    usage: /<command>
+    permission: tradeflow.command.autotrade
+    permission-message: You don't have permission to use this command.
+  tfloan:
     description: "Allows players to loan money."
-    usage: "/loan <amount>/pay"
-    permission: "autotune.loan"
+    usage: "/tfloan <amount>/pay"
+    permission: "tradeflow.loan"
     permission-message: "You don't have permission to use this command."
+  tf-migrate-database:
+    description: "Migrates data from MapDB to MySQL."
+    usage: "/tf-migrate-database"
+    permission: "tradeflow.admin"
+    permission-message: "You don't have permission to use this command."
+  tf:
+    description: "Admin command for TradeFlow."
+    usage: "/tf <reload|update|price|migrate|...etc>"
+    permission: tradeflow.admin
+  tfsetprice:
+    description: Set the price of a shop item.
+    usage: /tfsetprice <shopName> <price>
+    permission: tradeflow.admin
+  tfupdate:
+    description: Update prices.
+    usage: /tfupdate
+    permission: tradeflow.admin
+  tfimport:
+    description: Imports shops from shops.yml to the MySQL database.
+    usage: /tfimport
+    permission: tradeflow.admin
 permissions:
-  autotune.help:
+  tradeflow.help:
     description: "Allows the user to use help."
     default: true
-  autotune.shop:
+  tradeflow.shop:
     description: "Allows the user to use the shop."
     default: true
-  autotune.admin:
+  tradeflow.admin:
     description: "Allows reloading of the shops & configuration files"
-    default: false
-  autotune.sell:
+    default: true
+  tradeflow.sell:
     description: "Allows the user to use the sell menu."
     default: true
-  autotune.autosell:
+  tradeflow.autosell:
     description: "Allows the user to use the autosell menu."
     default: true
-  autotune.loan:
+  tradeflow.loan:
     description: "Allows the user to use the loan command."
+    default: true
+  tradeflow.command.market:
+    description: "Allows the user to use the market command."
+    default: true
+  tradeflow.command.autotrade:
+    description: "Allows the user to use the autotrade command."
     default: true

@@ -5,15 +5,6 @@
 # Prices and limits will automatically adjust based on supply & demand,
 # and now, also based on crafting costs and economic events!
 
-# --- GLOBAL PRICING CONFIGURATION ---
-# Paramètres globaux pour le moteur de pricing automatique
-pricing:
-  mode: auto   # si un item n’a pas 'price', son prix est calculé
-  m: 0.10      # marge par défaut (peut être surchargée par item)
-  t: 0.05      # taxe par défaut (peut être surchargée par item)
-  machine_time_cost_per_second: 0.02  # coût machine global (four, etc.)
-  byproduct_ratio: 0.7                 # crédit sous-produit (0..1)
-
 # --- SECTIONS CONFIGURATION ---
 # The 'sections' block defines the main categories that appear in your shop GUI.
 # Each section represents a clickable icon that leads to a list of items.
@@ -77,12 +68,13 @@ sections:
     image: enchanted_book
     x: 4
     y: 3
+    collect-first: NONE # Par défaut, les livres/enchantements sont achetables sans collecte préalable. Override par item possible via items.<id>.access.collect-first
 
 # --- SHOP ITEMS CONFIGURATION ---
-# The 'shops' block defines all items available in your shop.
+# The 'items' block defines all items available in your shop.
 # Each item must have a 'section' property that matches one of the sections defined above.
 # Item names must be valid Minecraft item IDs (e.g., 'DIAMOND', 'OAK_LOG').
-shops:
+items:
   # --- Ores & Minerals ---
   amethyst_shard:
     section: ores
@@ -148,10 +140,15 @@ shops:
     volatility: 0.3
   iron_ingot:
     section: ores
-    # price: 12 # Auto-calculé
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.45
+    price: 50 # Auto-calculé, mais ici on met un anchor
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.25
+    m: 0.12
+    t: 0.05
+    pmin: 10
+    pmax: 150
+    free: false
   lapis_block:
     section: ores
     price: 135
@@ -240,7 +237,7 @@ shops:
     volatility: 0.3
   chest:
     section: blocks
-    # price: 16 # Auto-calculé
+    price: 16 # Auto-calculé, mais ici on met un anchor
     max-buy: 128
     max-sell: 256
     volatility: 0.3
@@ -276,13 +273,13 @@ shops:
     volatility: 0.1
   furnace:
     section: blocks
-    # price: 16 # Auto-calculé
+    price: 16 # Auto-calculé, mais ici on met un anchor
     max-buy: 64
     max-sell: 128
     volatility: 0.2
   glass:
     section: blocks
-    # price: 3 # Auto-calculé
+    price: 3 # Auto-calculé, mais ici on met un anchor
     max-buy: 512
     max-sell: 1024
     volatility: 0.25
@@ -318,7 +315,7 @@ shops:
     volatility: 0.35
   oak_planks:
     section: blocks
-    # price: 2 # Auto-calculé
+    price: 2 # Auto-calculé, mais ici on met un anchor
     max-buy: 1024
     max-sell: 2048
     volatility: 0.25
@@ -348,7 +345,7 @@ shops:
     volatility: 0.2
   stone_bricks:
     section: blocks
-    # price: 2 # Auto-calculé
+    price: 2 # Auto-calculé, mais ici on met un anchor
     max-buy: 512
     max-sell: 1024
     volatility: 0.2
@@ -784,7 +781,8 @@ shops:
     volatility: 0.7
     global-stock-limit: 20
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   efficiency:
     section: enchantments
     price: 450
@@ -793,7 +791,8 @@ shops:
     volatility: 0.7
     global-stock-limit: 20
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   feather_falling:
     section: enchantments
     price: 500
@@ -802,7 +801,8 @@ shops:
     volatility: 0.75
     global-stock-limit: 15
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   fire_protection:
     section: enchantments
     price: 400
@@ -811,7 +811,8 @@ shops:
     volatility: 0.7
     global-stock-limit: 20
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   fortune:
     section: enchantments
     price: 950
@@ -820,7 +821,8 @@ shops:
     volatility: 0.9
     global-stock-limit: 11
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   infinity:
     section: enchantments
     price: 1250
@@ -829,7 +831,8 @@ shops:
     volatility: 1.1
     global-stock-limit: 15
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   looting:
     section: enchantments
     price: 750
@@ -838,7 +841,8 @@ shops:
     volatility: 0.85
     global-stock-limit: 12
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   mending:
     section: enchantments
     price: 2000
@@ -847,7 +851,8 @@ shops:
     volatility: 1.2
     global-stock-limit: 10
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   power:
     section: enchantments
     price: 650
@@ -856,7 +861,8 @@ shops:
     volatility: 0.8
     global-stock-limit: 15
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   protection:
     section: enchantments
     price: 350
@@ -865,7 +871,8 @@ shops:
     volatility: 0.7
     global-stock-limit: 20
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   sharpness:
     section: enchantments
     price: 450
@@ -874,7 +881,8 @@ shops:
     volatility: 0.7
     global-stock-limit: 20
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   silk_touch:
     section: enchantments
     price: 1000
@@ -883,7 +891,8 @@ shops:
     volatility: 1.0
     global-stock-limit: 10
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
   unbreaking:
     section: enchantments
     price: 600
@@ -892,7 +901,8 @@ shops:
     volatility: 0.8
     global-stock-limit: 15
     global-stock-period: weekly
-    collect-first: none
+    access:
+      collect-first: NONE
 
   # --- Miscellaneous ---
   black_dye:
@@ -975,7 +985,8 @@ shops:
     volatility: 0.2
   stick:
     section: misc
-    # price: 0.5 # Auto-calculé
+    price: 0 # Auto-calculé, mais ici on met un anchor
+    free: true
     max-buy: 1024
     max-sell: 2048
     volatility: 0.2
@@ -1101,3 +1112,23 @@ shops:
     max-buy: 32
     max-sell: 64
     volatility: 0.6
+
+# --- Item Families Overrides ---
+# This section allows overriding or defining new item families.
+# Families defined here will completely replace any matching families in config.yml.
+families:
+  raw_iron:
+    variants:
+      - iron_ingot
+      - iron_nugget
+      - iron_block
+      - raw_iron_block
+
+  wood_set:
+    variants:
+      - oak_log
+      - oak_planks
+      - oak_slab
+      - oak_stairs
+      - oak_fence
+      - oak_door
