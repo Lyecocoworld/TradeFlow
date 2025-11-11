@@ -355,9 +355,9 @@ public final class IfGuiService implements GuiService {
 
                     // register() may not exist; ignore if absent
                     try {
-                        java.lang.reflect.Method reg = frameClass.getDeclaredMethod("register"); // Call register on the frame object
+                        java.lang.reflect.Method reg = withResult.getClass().getDeclaredMethod("register"); // Call register on the result of with()
                         reg.setAccessible(true);
-                        reg.invoke(frame);
+                        reg.invoke(withResult);
                     } catch (Throwable ignored) {}
                 } catch (Throwable ignored) {}
 
