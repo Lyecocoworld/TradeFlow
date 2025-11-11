@@ -311,50 +311,10 @@ public final class IfGuiService implements GuiService {
             try {
                 Class<?> frameClass = Class.forName("me.devnatan.inventoryframework.ViewFrame");
                 // Try any accessible constructor, prefer one that accepts Plugin
-                Object frame = null;
-                for (java.lang.reflect.Constructor<?> ctor : frameClass.getDeclaredConstructors()) {
-                    Class<?>[] params = ctor.getParameterTypes();
-                    try {
-                        ctor.setAccessible(true);
-                        if (params.length == 1 && org.bukkit.plugin.Plugin.class.isAssignableFrom(params[0])) {
-                            frame = ctor.newInstance(plugin);
-                            break;
-                        }
-                        if (params.length == 0) {
-                            frame = ctor.newInstance();
-                            break;
-                        }
-                    } catch (Throwable ignored) {
-                    }
-                }
-                if (frame == null) {
-                    throw new IllegalStateException("No suitable ViewFrame constructor found");
-                }
-                java.lang.reflect.Method withMethod = frameClass.getDeclaredMethod("with", View.class);
-                withMethod.setAccessible(true);
-                withMethod.invoke(frame, view);
-                frameClass.getMethod("register").invoke(frame);
+                me.devnatan.inventoryframework.ViewFrame frame = new me.devnatan.inventoryframework.ViewFrame(plugin);
+                frame.with(view).register();
                 java.util.Map<String, Object> viewers = java.util.Collections.singletonMap(player.getUniqueId().toString(), player);
-
-                // Try to find an open-like method reflectively
-                java.lang.reflect.Method chosen = null;
-                Object[] args = null;
-                for (java.lang.reflect.Method m : frameClass.getDeclaredMethods()) {
-                    if (!m.getName().toLowerCase().contains("open")) continue;
-                    Class<?>[] p = m.getParameterTypes();
-                    if (p.length == 3) {
-                        // patterns: (Class, Map, Object) or (Map, Class, Object)
-                        if (Class.class.isAssignableFrom(p[0]) && java.util.Map.class.isAssignableFrom(p[1])) {
-                            chosen = m; args = new Object[]{ view.getClass(), viewers, null }; break;
-                        }
-                        if (java.util.Map.class.isAssignableFrom(p[0]) && Class.class.isAssignableFrom(p[1])) {
-                            chosen = m; args = new Object[]{ viewers, view.getClass(), null }; break;
-                        }
-                    }
-                }
-                if (chosen == null) throw new NoSuchMethodException("No suitable open method on ViewFrame");
-                chosen.setAccessible(true);
-                chosen.invoke(frame, args);
+                frame.open(view.getClass(), viewers, null);
             } catch (Throwable t) {
                 try {
                     player.sendMessage("Failed to open GUI.");
