@@ -313,12 +313,18 @@ public final class IfGuiService implements GuiService {
                 Object runtime = null;
                 try {
                     // Try getInstance() first
-                    java.lang.reflect.Method getInstanceMethod = rf.getMethod("getInstance");
+                    java.lang.reflect.Method getInstanceMethod = rf.getDeclaredMethod("getInstance");
+                    getInstanceMethod.setAccessible(true);
                     runtime = getInstanceMethod.invoke(null);
                 } catch (NoSuchMethodException e) {
                     // If getInstance() not found, try create(Plugin)
-                    java.lang.reflect.Method createMethod = rf.getMethod("create", org.bukkit.plugin.Plugin.class);
-                    runtime = createMethod.invoke(null, plugin);
+                    try {
+                        java.lang.reflect.Method createMethod = rf.getDeclaredMethod("create", org.bukkit.plugin.Plugin.class);
+                        createMethod.setAccessible(true);
+                        runtime = createMethod.invoke(null, plugin);
+                    } catch (NoSuchMethodException ignored) {
+                        // If neither getInstance nor create(Plugin) are found, runtime remains null
+                    }
                 }
                 if (runtime == null) {
                     throw new IllegalStateException("No suitable InventoryFramework instance found");
@@ -359,5 +365,6 @@ public final class IfGuiService implements GuiService {
         }
     }
 }
+
 
 
