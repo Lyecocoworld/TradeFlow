@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.github.lye'
-version '0.14.4'
+version '0.1'
 
 ext {
     jettyVersion = '11.0.19'
