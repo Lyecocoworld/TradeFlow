@@ -330,7 +330,9 @@ public final class IfGuiService implements GuiService {
                 if (frame == null) {
                     throw new IllegalStateException("No suitable ViewFrame constructor found");
                 }
-                frameClass.getMethod("with", View.class).invoke(frame, view);
+                java.lang.reflect.Method withMethod = frameClass.getDeclaredMethod("with", View.class);
+                withMethod.setAccessible(true);
+                withMethod.invoke(frame, view);
                 frameClass.getMethod("register").invoke(frame);
                 java.util.Map<String, Object> viewers = java.util.Collections.singletonMap(player.getUniqueId().toString(), player);
 
