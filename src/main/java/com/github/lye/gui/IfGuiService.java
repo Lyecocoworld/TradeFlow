@@ -351,13 +351,17 @@ public final class IfGuiService implements GuiService {
                     }
                     if (with == null) { with = frameClass.getDeclaredMethod("with", View.class); }
                     with.setAccessible(true);
-                    with.invoke(frame, view);
+                    Object withResult = with.invoke(frame, view); // Store the result of with()
+
+                    // register() may not exist; ignore if absent
+                    try {
+                        java.lang.reflect.Method reg = withResult.getClass().getDeclaredMethod("register"); // Call register on the result of with()
+                        reg.setAccessible(true);
+                        reg.invoke(withResult);
+                    } catch (Throwable ignored) {}
                 } catch (Throwable ignored) {}
 
-                // register() may not exist; ignore if absent
-                try { java.lang.reflect.Method reg = frameClass.getDeclaredMethod("register"); reg.setAccessible(true); reg.invoke(frame); } catch (Throwable ignored) {}
-
-                // Open: support (Class, Map, Object) and (Map, Class, Object)
+                                // Open: support multiple signature variants
                 java.util.Map<String, Object> viewers = java.util.Collections.singletonMap(player.getUniqueId().toString(), player);
                 java.lang.reflect.Method chosen = null; Object[] args = null;
                 for (java.lang.reflect.Method m : frameClass.getDeclaredMethods()) {
@@ -365,14 +369,11 @@ public final class IfGuiService implements GuiService {
                     if (!n.contains("open")) continue;
                     Class<?>[] p = m.getParameterTypes();
                     m.setAccessible(true);
-                    // Try pattern: (Class, Player, Object)
-                    if (p.length == 3 && Class.class.isAssignableFrom(p[0]) && Player.class.isAssignableFrom(p[1])) {
-                        chosen = m; args = new Object[]{ view.getClass(), player, null }; break;
-                    }
-                    // Try pattern: (Class, Collection<? extends Player>, Object)
-                    if (p.length == 3 && Class.class.isAssignableFrom(p[0]) && java.util.Collection.class.isAssignableFrom(p[1])) {
-                        chosen = m; args = new Object[]{ view.getClass(), java.util.Collections.singletonList(player), null }; break;
-                    }
+                    if (p.length == 3 && Class.class.isAssignableFrom(p[0]) && java.util.Map.class.isAssignableFrom(p[1])) { chosen = m; args = new Object[]{ view.getClass(), viewers, null }; break; }
+                    if (p.length == 3 && java.util.Map.class.isAssignableFrom(p[0]) && Class.class.isAssignableFrom(p[1])) { chosen = m; args = new Object[]{ viewers, view.getClass(), null }; break; }
+                    if (p.length == 3 && Class.class.isAssignableFrom(p[0]) && org.bukkit.entity.Player.class.isAssignableFrom(p[1])) { chosen = m; args = new Object[]{ view.getClass(), player, null }; break; }
+                    if (p.length == 3 && org.bukkit.entity.Player.class.isAssignableFrom(p[0]) && Class.class.isAssignableFrom(p[1])) { chosen = m; args = new Object[]{ player, view.getClass(), null }; break; }
+                    if (p.length == 3 && java.util.Collection.class.isAssignableFrom(p[0]) && Class.class.isAssignableFrom(p[1])) { chosen = m; args = new Object[]{ java.util.Collections.singletonList(player), view.getClass(), null }; break; }
                 }
                 if (chosen == null) throw new NoSuchMethodException("No open/internalOpen method found on frame");
                 chosen.invoke(frame, args);
@@ -388,6 +389,7 @@ public final class IfGuiService implements GuiService {
         }
     }
 }
+
 
 
 
