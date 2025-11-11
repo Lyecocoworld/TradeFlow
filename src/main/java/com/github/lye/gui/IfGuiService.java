@@ -310,11 +310,41 @@ public final class IfGuiService implements GuiService {
         Runnable openTask = () -> {
             try {
                 Class<?> frameClass = Class.forName("me.devnatan.inventoryframework.ViewFrame");
-                // Try any accessible constructor, prefer one that accepts Plugin
-                me.devnatan.inventoryframework.ViewFrame frame = new me.devnatan.inventoryframework.ViewFrame(plugin);
-                frame.with(view).register();
-                java.util.Map<String, Object> viewers = java.util.Collections.singletonMap(player.getUniqueId().toString(), player);
-                frame.open(view.getClass(), viewers, null);
+                Object frame = null;
+                for (java.lang.reflect.Constructor<?> ctor : frameClass.getDeclaredConstructors()) {
+                    Class<?>[] params = ctor.getParameterTypes();
+                    try {
+                        ctor.setAccessible(true); // Allow access to private constructors
+                        if (params.length == 1 && org.bukkit.plugin.Plugin.class.isAssignableFrom(params[0])) {
+                            frame = ctor.newInstance(plugin);
+                            break;
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (frame == null) {
+                    throw new IllegalStateException("No suitable ViewFrame constructor found");
+                }
+                java.lang.reflect.Method withMethod = frameClass.getDeclaredMethod("with", View.class);
+                withMethod.setAccessible(true);
+                withMethod.invoke(frame, view);
+                frameClass.getMethod("register").invoke(frame);
+                // Try to find an an open-like method reflectively
+                java.lang.reflect.Method chosen = null;
+                Object[] args = null;
+                for (java.lang.reflect.Method m : frameClass.getDeclaredMethods()) {
+                    if (!m.getName().toLowerCase().contains("open")) continue;
+                    Class<?>[] p = m.getParameterTypes();
+                    if (p.length == 3) {
+                        // pattern: (Class, Player, Object)
+                        if (Class.class.isAssignableFrom(p[0]) && Player.class.isAssignableFrom(p[1])) {
+                            chosen = m; args = new Object[]{ view.getClass(), player, null }; break;
+                        }
+                    }
+                }
+                if (chosen == null) throw new NoSuchMethodException("No suitable open method on ViewFrame");
+                chosen.setAccessible(true);
+                chosen.invoke(frame, args);
             } catch (Throwable t) {
                 try {
                     player.sendMessage("Failed to open GUI.");
