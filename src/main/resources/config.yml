@@ -1,88 +1,9 @@
-# Auto-Tune Configuration File
+# --- TradeFlow : Fichier Racine ---
+# Les paramètres sont désormais divisés en modules pour plus de clarté.
 
-# --- Database Settings ---
-# Enable this to use a MySQL database instead of file-based storage.
-database-enabled: false
-database:
-  host: "Host"
-  port: 3306
-  database: "Database"
-  username: "user"
-  password: "password"
-  use-ssl: false
-
-# --- Pricing Settings ---
-# Global parameters for the auto-pricing engine.
-# These values can be overridden per-item in shop.yml.
-pricing:
-  default-margin: 0.10          # Default margin applied to all auto-calculated prices
-  default-tax: 0.05             # Default global economic tax
-  default-volatility: 0.5       # Default maximum allowed price variation per snapshot
-  epsilon: 0.01                 # Minimum price floor to prevent zero/negative prices
-  byproduct-ratio: 0.7          # Share of recoverable cost from byproducts (0.0 to 1.0)
-  machine_time_cost_per_second: 0.02 # Global machine time cost (e.g., for furnaces)
-  fuel_costs:
-    furnace_per_item: 0.15 # Cost of fueling a furnace for one item
-
-  import:
-    enabled: true
-    dry-run: false
-    batch-size: 256
-    ignore-sources: ["OVERRIDE"]
-
-# The minimum number of online players required for price updates to occur.
-minimum-players: 2
-
-# The interest rate for loans.
-interest: 0.05
-
-# The time in seconds between tutorial messages.
-tutorial-update: 300
-
-# --- Web Server Settings ---
-# Enable the integrated web server to display economy graphs.
-web-server: true
-# The port for the web server.
-port: 8989
-
-# --- GUI Settings ---
-# The material for the background panes in the shop GUI.
-background: 'BLACK_STAINED_GLASS_PANE'
-gui:
-  locked_style: "ghost"   # "pane" | "ghost"
-  locked_tips:
-    metals_hint: true
-
-# --- Plugin Behavior ---
-# The logging level for the console. Can be SEVERE, WARNING, INFO, CONFIG, FINE, FINER, FINEST.
-log-level: 'INFO'
-# The locale for messages.
-locale: 'en_US'
-# Enable limits on how many items a player can buy/sell in a time period.
-enable-sell-limits: false
-access:
-  collect-first:
-    default: PLAYER   # NONE | PLAYER | SERVER
-    notify:
-      on-unlock: true
-      on-deny: true
-
-# --- Global Item Families ---
-# Defines default groupings of item variants.
-# These can be fully overridden by the 'families' section in shop.yml.
-families:
-  raw_iron:
-    variants:
-      - raw_iron_block
-      - iron_ingot
-      - iron_nugget
-      - iron_block
-
-  oak_log:
-    variants:
-      - oak_planks
-      - oak_slab
-      - oak_stairs
-      - oak_fence
-      - oak_trapdoor
-      - oak_door
+modules:
+  pricing: "modules/pricing.yml"
+  features: "modules/features.yml"
+  organizations: "modules/organizations.yml"
+  general: "modules/general.yml"
+  families: "modules/families.yml"

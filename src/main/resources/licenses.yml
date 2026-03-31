@@ -1,0 +1,55 @@
+licenses:
+  system:
+    max-active-per-player: 1
+    gui-warning-enabled: true
+    # Temps en secondes avant expiration du cache local (optionnel)
+    cache-duration: 300 
+
+  definitions:
+    miner:
+      id: miner
+      name: "<gray>Licence de </gray><gold>Mineur</gold>"
+      # Durée en jours
+      duration-days: 30
+      price: 5000.0
+      effects:
+        sell_bonus: 0.05      # +5% vente
+        buy_discount: 0.00
+        tax_reduction: 0.02   # -2% taxe
+      categories:
+        - minerals
+        - blocks
+      lore:
+        - "<gray>Spécialisez-vous dans l'extraction.</gray>"
+        - "<green>+5%</green> <gray>sur la vente de minerais.</gray>"
+
+    farmer:
+      id: farmer
+      name: "<gray>Licence d'</gray><yellow>Agriculteur</yellow>"
+      duration-days: 30
+      price: 4500.0
+      effects:
+        sell_bonus: 0.04
+        buy_discount: 0.02
+        tax_reduction: 0.00
+      categories:
+        - farming
+        - nature
+      lore:
+        - "<gray>Pour les maîtres de la terre.</gray>"
+        - "<green>+4%</green> <gray>sur la vente de récoltes.</gray>"
+
+    merchant:
+      id: merchant
+      name: "<gray>Licence de </gray><aqua>Marchand</aqua>"
+      duration-days: 15
+      price: 8000.0
+      effects:
+        sell_bonus: 0.00
+        buy_discount: 0.07    # -7% achat
+        tax_reduction: 0.05
+      categories:
+        - all
+      lore:
+        - "<gray>L'art de la négociation.</gray>"
+        - "<green>-7%</green> <gray>sur tous les achats.</gray>"

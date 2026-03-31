@@ -1,0 +1,119 @@
+# ============================================================
+# TradeFlow — Item Purchase Interface (zMenu config)
+# ============================================================
+# Layout (6 rows, 54 slots):
+#   Row 1-2: Background
+#   Row 3: [-64] [-8] [-1]  [Showcase]  [+1] [+8] [+64]
+#          slots:  18   19   20     22     24   25   26
+#   Row 4: [Buy]  [  ]  [Price]  [  ]  [Sell]
+#          slots:  29    30    31     32    33
+#   Row 5: Background
+#   Row 6: [Back]                              [Close]
+#          slots:  45                            53
+# ============================================================
+
+name: "&6&l  {item-name}"
+size: 54
+
+items:
+  # ---- Background ----
+  background:
+    item:
+      material: BLACK_STAINED_GLASS_PANE
+      name: " "
+    slots:
+      - "0-17"
+      - "21"
+      - "23"
+      - "27-28"
+      - "30"
+      - "32"
+      - "34-44"
+
+  # ---- Showcase (Slot 22) ----
+  showcase:
+    slot: 22
+    buttonType: tradeflow_item
+    itemName: "{item-name-placeholder}"
+    item:
+      material: BARRIER
+      name: "&b&l{item-name-placeholder}"
+      lore:
+        - ""
+        - "&7Quantity: &f{amount}"
+
+  # ---- Amount Controls ----
+  minus-64:
+    slot: 18
+    buttonType: tradeflow_amount
+    amountDelta: -64
+
+  minus-8:
+    slot: 19
+    buttonType: tradeflow_amount
+    amountDelta: -8
+
+  minus-1:
+    slot: 20
+    buttonType: tradeflow_amount
+    amountDelta: -1
+
+  plus-1:
+    slot: 24
+    buttonType: tradeflow_amount
+    amountDelta: 1
+
+  plus-8:
+    slot: 25
+    buttonType: tradeflow_amount
+    amountDelta: 8
+
+  plus-64:
+    slot: 26
+    buttonType: tradeflow_amount
+    amountDelta: 64
+
+  # ---- Price Display (Slot 31) ----
+  price-display:
+    slot: 31
+    item:
+      material: GOLD_INGOT
+      name: "&6&lTotal Price"
+      lore:
+        - ""
+        - "&7Unit: &f{price}"
+        - "&7Amount: &f{amount}"
+        - "&7Total: &e{total-price}"
+
+  # ---- Buy Button (Slot 29) ----
+  buy-button:
+    slot: 29
+    buttonType: tradeflow_buysell
+    action: "buy"
+
+  # ---- Sell Button (Slot 33) ----
+  sell-button:
+    slot: 33
+    buttonType: tradeflow_buysell
+    action: "sell"
+
+  # ---- Navigation ----
+  back-button:
+    slot: 45
+    item:
+      material: ARROW
+      name: "&c← Back"
+      lore:
+        - "&7Return to section"
+    actions:
+      type: COMMAND
+      commands:
+        - "tf shop"
+
+  close-button:
+    slot: 53
+    item:
+      material: RED_STAINED_GLASS_PANE
+      name: "&c✗ Close"
+    actions:
+      type: CLOSE

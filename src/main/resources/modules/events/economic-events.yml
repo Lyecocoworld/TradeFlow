@@ -1,0 +1,247 @@
+# ---------------------------------------------------- #
+#           TradeFlow Economic Events Configuration      #
+# ---------------------------------------------------- #
+
+economic-events:
+  # --- 1. Metal / Mining Events ---
+  gold-rush:
+    display-name: "<gold><bold>Gold Rush</bold></gold>"
+    start-message: "<gold>A Gold Rush has begun! The value of gold has temporarily increased!</gold>"
+    end-message: "<gray>The Gold Rush is over. Prices are returning to normal.</gray>"
+    duration-seconds: 600
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["GOLD_INGOT", "GOLD_ORE", "DEEPSLATE_GOLD_ORE", "RAW_GOLD"]
+        value: 1.35
+      - type: VOLATILITY_MODIFIER
+        items: ["GOLD_INGOT"]
+        value: 2.0
+
+  gemstone-fever:
+    display-name: "<aqua><bold>Gemstone Fever</bold></aqua>"
+    start-message: "<aqua>Jewelers are desperate for gems! Diamond and Emerald prices are spiking!</aqua>"
+    end-message: "<gray>The gemstone market has cooled down.</gray>"
+    duration-seconds: 900
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["DIAMOND", "EMERALD", "AMETHYST_SHARD"]
+        value: 1.25
+      - type: TAX_MODIFIER
+        items: ["DIAMOND", "EMERALD"]
+        value: 0.5 # Lower tax to encourage trading
+
+  iron-shortage:
+    display-name: "<gray><bold>Iron Shortage</bold></gray>"
+    start-message: "<gray>Industrial demand for Iron has outstripped supply! Prices are up.</gray>"
+    end-message: "<gray>Iron supplies have stabilized.</gray>"
+    duration-seconds: 1200
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["IRON_INGOT", "RAW_IRON", "IRON_BLOCK"]
+        value: 1.40
+      - type: STOCK_LIMIT_MULTIPLIER
+        items: ["IRON_INGOT"]
+        value: 0.5 # Server accepts less stock
+
+  # --- 2. Military / Combat Events ---
+  war-effort:
+    display-name: "<red><bold>War Effort</bold></red>"
+    start-message: "<red>The Kingdom is at war! Weapons and armor are desperately needed!</red>"
+    end-message: "<gray>The war effort has concluded.</gray>"
+    duration-seconds: 1800
+    effects:
+      - type: STOCK_LIMIT_MULTIPLIER
+        items: ["IRON_SWORD", "DIAMOND_SWORD", "BOW", "ARROW"]
+        value: 3.0 # Huge demand
+      - type: PRICE_MULTIPLIER
+        items: ["IRON_SWORD", "DIAMOND_SWORD", "BOW", "ARROW", "SHIELD"]
+        value: 1.20
+      - type: TAX_MODIFIER
+        items: ["IRON_SWORD", "DIAMOND_SWORD"]
+        value: 0.0 # Tax free weapons
+
+  monster-glut:
+    display-name: "<dark_green><bold>Monster Cull</bold></dark_green>"
+    start-message: "<dark_green>Hunters have flooded the market with monster parts. Prices are crashing!</dark_green>"
+    end-message: "<gray>The surplus of monster parts has been consumed.</gray>"
+    duration-seconds: 600
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["ROTTEN_FLESH", "BONE", "STRING", "SPIDER_EYE", "GUNPOWDER"]
+        value: 0.60 # Prices crash
+
+  # --- 3. Agriculture / Food Events ---
+  famine:
+    display-name: "<yellow><bold>Great Famine</bold></yellow>"
+    start-message: "<yellow>Crops are failing! Food prices are skyrocketing due to scarcity!</yellow>"
+    end-message: "<gray>The famine has ended. Food prices are normalizing.</gray>"
+    duration-seconds: 1200
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["BREAD", "COOKED_BEEF", "COOKED_PORKCHOP", "BAKED_POTATO", "APPLE"]
+        value: 1.60
+      - type: VOLATILITY_MODIFIER
+        items: ["WHEAT", "POTATO", "CARROT"]
+        value: 1.5
+
+  bountiful-harvest:
+    display-name: "<green><bold>Bountiful Harvest</bold></green>"
+    start-message: "<green>A massive harvest season! Crops are cheap and plentiful!</green>"
+    end-message: "<gray>The harvest festival is over.</gray>"
+    duration-seconds: 1500
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["WHEAT", "CARROT", "POTATO", "BEETROOT", "MELON_SLICE", "PUMPKIN"]
+        value: 0.80
+      - type: STOCK_LIMIT_MULTIPLIER
+        items: ["WHEAT", "CARROT", "POTATO"]
+        value: 2.0 # Accept more stock despite low price
+
+  fishing-festival:
+    display-name: "<blue><bold>Grand Fishing Festival</bold></blue>"
+    start-message: "<blue>The Grand Fishing Festival has begun! Rare fish fetch a premium!</blue>"
+    end-message: "<gray>The fishing festival has ended.</gray>"
+    duration-seconds: 900
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["PUFFERFISH", "TROPICAL_FISH", "SALMON", "COD"]
+        value: 1.50
+      - type: PRICE_MULTIPLIER
+        items: ["FISHING_ROD"]
+        value: 1.20
+
+  # --- 4. Construction / Industry ---
+  construction-boom:
+    display-name: "<gold><bold>Construction Boom</bold></gold>"
+    start-message: "<gold>A new city is being built! Architects need massive amounts of materials.</gold>"
+    end-message: "<gray>The construction boom has slowed down.</gray>"
+    duration-seconds: 2400
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["OAK_LOG", "SPRUCE_LOG", "BIRCH_LOG", "STONE", "COBBLESTONE", "BRICKS", "GLASS"]
+        value: 1.25
+      - type: STOCK_LIMIT_MULTIPLIER
+        items: ["STONE", "COBBLESTONE"]
+        value: 5.0
+
+  redstone-revolution:
+    display-name: "<dark_red><bold>Redstone Revolution</bold></dark_red>"
+    start-message: "<dark_red>Tech breakthrough! Engineers are buying up Redstone components!</dark_red>"
+    end-message: "<gray>The Redstone hype has faded.</gray>"
+    duration-seconds: 1200
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["REDSTONE", "REDSTONE_BLOCK", "REPEATER", "COMPARATOR", "PISTON", "STICKY_PISTON", "OBSERVER"]
+        value: 1.40
+
+  lumberjack-strike:
+    display-name: "<dark_green><bold>Lumberjack Strike</bold></dark_green>"
+    start-message: "<dark_green>The Woodcutters Guild is on strike! Wood prices are rising.</dark_green>"
+    end-message: "<gray>The strike has been resolved.</gray>"
+    duration-seconds: 900
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["OAK_LOG", "SPRUCE_LOG", "BIRCH_LOG", "JUNGLE_LOG", "ACACIA_LOG", "DARK_OAK_LOG", "CHERRY_LOG"]
+        value: 1.50
+      - type: VOLATILITY_MODIFIER
+        items: ["OAK_LOG"]
+        value: 3.0
+
+  # --- 5. Magic / Alchemy ---
+  alchemist-symposium:
+    display-name: "<light_purple><bold>Alchemist Symposium</bold></light_purple>"
+    start-message: "<light_purple>Wizards are gathering! Brewing ingredients are in high demand.</light_purple>"
+    end-message: "<gray>The symposium has ended.</gray>"
+    duration-seconds: 1200
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["NETHER_WART", "BLAZE_ROD", "GHAST_TEAR", "SPIDER_EYE", "MAGMA_CREAM", "GLISTERING_MELON_SLICE"]
+        value: 1.35
+      - type: STOCK_LIMIT_MULTIPLIER
+        items: ["NETHER_WART"]
+        value: 2.0
+
+  nether-embargo:
+    display-name: "<dark_purple><bold>Nether Embargo</bold></dark_purple>"
+    start-message: "<dark_purple>The King has declared an embargo on Nether goods! Trading is forbidden.</dark_purple>"
+    end-message: "<gray>The Nether embargo has been lifted.</gray>"
+    duration-seconds: 600
+    effects:
+      - type: EMBARGO
+        items: ["QUARTZ", "NETHERRACK", "BLAZE_ROD", "MAGMA_CREAM", "SOUL_SAND", "NETHER_BRICK"]
+        value: 0
+
+  ender-expedition:
+    display-name: "<dark_purple><bold>Ender Expedition</bold></dark_purple>"
+    start-message: "<dark_purple>Explorers are preparing for the End! Demand for Ender Pearls and Eyes is up.</dark_purple>"
+    end-message: "<gray>The expedition fleets have launched.</gray>"
+    duration-seconds: 900
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["ENDER_PEARL", "ENDER_EYE", "OBSIDIAN"]
+        value: 1.40
+
+  # --- 6. Economic Crises / Booms ---
+  market-crash:
+    display-name: "<dark_red><bold>MARKET CRASH</bold></dark_red>"
+    start-message: "<dark_red>The stock market is crashing! Panic selling is occurring everywhere!</dark_red>"
+    end-message: "<green>The market is finally stabilizing.</green>"
+    duration-seconds: 300
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["DIAMOND", "EMERALD", "GOLD_INGOT", "IRON_INGOT", "NETHERITE_INGOT"]
+        value: 0.60 # 40% drop
+      - type: VOLATILITY_MODIFIER
+        items: ["DIAMOND", "EMERALD", "GOLD_INGOT"]
+        value: 5.0 # Extreme volatility
+
+  tax-holiday:
+    display-name: "<green><bold>Tax Holiday</bold></green>"
+    start-message: "<green>The Governor declared a tax-free trading hour! Enjoy maximum profits!</green>"
+    end-message: "<gray>Tax holiday is over. Taxes have been reinstated.</gray>"
+    duration-seconds: 600
+    effects:
+      - type: TAX_MODIFIER
+        items: ["DIAMOND", "EMERALD", "IRON_INGOT", "GOLD_INGOT", "NETHERITE_INGOT"]
+        value: 0.0 # No tax
+
+  inflation-spike:
+    display-name: "<red><bold>Inflation Spike</bold></red>"
+    start-message: "<red>Currency is losing value! Prices for raw resources are rising to compensate.</red>"
+    end-message: "<gray>Inflation has stabilized.</gray>"
+    duration-seconds: 1800
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["COAL", "IRON_INGOT", "COPPER_INGOT", "GOLD_INGOT", "LAPIS_LAZULI"]
+        value: 1.10 # Slight increase across the board
+
+  # --- 7. Seasonal / Special ---
+  winter-storm:
+    display-name: "<aqua><bold>Winter Storm</bold></aqua>"
+    start-message: "<aqua>A blizzard is coming! Demand for fuel and wool is heating up.</aqua>"
+    end-message: "<gray>The storm has passed.</gray>"
+    duration-seconds: 900
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["COAL", "CHARCOAL", "WHITE_WOOL", "CAMPFIRE"]
+        value: 1.30
+
+  oceanic-bounty:
+    display-name: "<blue><bold>Oceanic Bounty</bold></blue>"
+    start-message: "<blue>Divers have found a rich reef! Prismarine and Coral are flooding the market.</blue>"
+    end-message: "<gray>The reef has been depleted.</gray>"
+    duration-seconds: 1200
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["PRISMARINE_SHARD", "PRISMARINE_CRYSTALS", "SPONGE", "NAUTILUS_SHELL"]
+        value: 0.80 # Cheaper due to supply
+
+  archaeology-craze:
+    display-name: "<gold><bold>Archaeology Craze</bold></gold>"
+    start-message: "<gold>Museums are paying top dollar for suspicious blocks and brushes!</gold>"
+    end-message: "<gray>The archaeology hype has died down.</gray>"
+    duration-seconds: 1500
+    effects:
+      - type: PRICE_MULTIPLIER
+        items: ["BRUSH", "SUSPICIOUS_SAND", "SUSPICIOUS_GRAVEL"]
+        value: 1.50

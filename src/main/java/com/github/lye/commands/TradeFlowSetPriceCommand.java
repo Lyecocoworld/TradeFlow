@@ -35,37 +35,37 @@ public class TradeFlowSetPriceCommand extends BaseCommand implements CommandExec
         }
 
         if (args.length != 2) {
-            Format.sendMessage(sender, getUsage());
+            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
         String shopName = args[0];
         
-        Optional<Double> priceOptional = ArgumentParser.getDouble(sender, args[1], Config.get().getAdminInvalidPrice());
+        Optional<Double> priceOptional = ArgumentParser.getDouble(sender, plugin.getMessageService(), args[1], plugin.getMessageSettings().getAdminInvalidPrice());
         if (priceOptional.isEmpty()) {
             return true;
         }
         double price = priceOptional.get();
 
         if (price < 0) {
-            Format.sendMessage(sender, Config.get().getAdminInvalidPrice());
+            plugin.getMessageService().sendErrorMessage(sender, plugin.getMessageSettings().getAdminInvalidPrice(), null);
             return true;
         }
 
         Database.acquireWriteLock();
         try {
-            Optional<Shop> shopOptional = ArgumentParser.getShop(plugin.getDatabase(), sender, shopName);
+            Optional<Shop> shopOptional = ArgumentParser.getShop(plugin.getShopUtil(), plugin.getMessageSettings(), sender, plugin.getMessageService(), shopName);
             if (shopOptional.isEmpty()) {
                 return true;
             }
             Shop shop = shopOptional.get();
 
             shop.setPrice(price);
-            ShopUtil.putShop(plugin.getDatabase(), shopName, shop);
-            plugin.recalculatePrices(); // ✅ recalcul des prix dispo publiés dans le PriceService
+            plugin.getShopUtil().putShop(shopName, shop);
+            plugin.recalculatePrices(); // ✅ recalcul des prix publiés dans le PriceService
             TagResolver resolver = Placeholder.parsed("price", Format.currency(price));
-            Format.sendMessage(sender, Config.get().getAdminPriceSet(), resolver);
-            Format.sendMessage(sender, "§aPrices recalculation requested.");
+            plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminPriceSet(), resolver);
+            plugin.getMessageService().sendInfoMessage(sender, "§aPrices recalculation requested.", null);
         } finally {
             Database.releaseWriteLock();
         }
@@ -75,7 +75,7 @@ public class TradeFlowSetPriceCommand extends BaseCommand implements CommandExec
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length == 1) {
-            return Arrays.stream(ShopUtil.getShopNames(plugin.getDatabase()))
+            return Arrays.stream(plugin.getShopUtil().getShopNames())
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         } else if (args.length == 2) {

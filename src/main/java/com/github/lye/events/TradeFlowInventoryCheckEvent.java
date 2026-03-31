@@ -13,10 +13,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.config.Config;
+import com.github.lye.config.settings.IAutosellSettings;
+import com.github.lye.config.settings.IMessageSettings;
 
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
 import com.github.lye.util.Format;
+import com.github.lye.service.IMessageService;
 
 /**
  * The event to check players inventories for items they have auto-sold and
@@ -26,6 +29,10 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
 
     public static Map<UUID, List<String>> autosellItemMaxReached = new HashMap<>();
     private final Database database;
+    private final ShopUtil shopUtil;
+    private final IMessageService messageService;
+    private final IAutosellSettings autosellSettings;
+    private final IMessageSettings messageSettings;
 
     /**
      * Checks a single player's inventory for autosell items
@@ -35,9 +42,15 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
      * @param player The player to check.
      * @param isAsync Whether the event is being run async or not.
      */
-    public TradeFlowInventoryCheckEvent(Database database, Player player, boolean isAsync) {
+    public TradeFlowInventoryCheckEvent(Database database, ShopUtil shopUtil, IMessageService messageService,
+                                         IAutosellSettings autosellSettings, IMessageSettings messageSettings,
+                                         Player player, boolean isAsync) {
         super(isAsync);
         this.database = database;
+        this.shopUtil = shopUtil;
+        this.messageService = messageService;
+        this.autosellSettings = autosellSettings;
+        this.messageSettings = messageSettings;
         checkInventory(player);
     }
 
@@ -60,11 +73,11 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
                 for (Enchantment enchantment : item.getEnchantments().keySet()) {
                     String name = enchantment.getKey().getKey().toLowerCase();
 
-                    if (!ShopUtil.isInShop(this.database, name)) {
+                    if (!shopUtil.isInShop(name)) {
                         continue;
                     }
 
-                    Shop shop = getShop(this.database, name);
+                    Shop shop = shopUtil.getShop(name, true);
 
                 }
 
@@ -78,21 +91,21 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
 
         String name = item.getType().toString().toLowerCase();
 
-        if (!ShopUtil.isInShop(this.database, name)) {
+        if (!shopUtil.isInShop(name)) {
             return;
         }
 
-        Shop shop = getShop(this.database, name);
+        Shop shop = shopUtil.getShop(name, true);
         
         UUID uuid = player.getUniqueId();
 
-        boolean autosellEnabled = Config.get().getAutosell().getBoolean(uuid + "." + name, false);
+        boolean autosellEnabled = autosellSettings.getAutosell().getBoolean(uuid + "." + name, false);
 
         if (!autosellEnabled) {
             return;
         }
 
-        if (ShopUtil.getSellsLeft(this.database, player, name) - item.getAmount() < 0) {
+        if (shopUtil.getSellsLeft(player, name) - item.getAmount() < 0) {
             if (!autosellItemMaxReached.containsKey(uuid)) {
                 List<String> list = autosellItemMaxReached.get(uuid);
                 if (list == null) {
@@ -105,7 +118,7 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
                 List<String> list = autosellItemMaxReached.get(uuid);
                 if (!list.contains(name)) {
                     list.add(name);
-                    Format.sendMessage(player, Config.get().getRunOutOfSells());
+                    messageService.sendInfoMessage(player, messageSettings.getRunOutOfSells(), null);
                 }
             }
             return;
@@ -120,21 +133,5 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
         shop.addSells(uuid, amount);
 
     }
-
-    private Shop getShop(Database database, String shopName) {
-        if (shopName == null) {
-            return null;
-        }
-
-        Shop shop = ShopUtil.getShop(database, shopName, true);
-
-        if (shop == null) {
-            return null;
-        }
-
-        return shop;
-    }
-
-
 
 }

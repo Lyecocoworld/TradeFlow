@@ -9,6 +9,8 @@ import org.bukkit.event.HandlerList;
 import com.github.lye.config.Config;
 import com.github.lye.util.Format;
 
+import com.github.lye.config.settings.IMessageSettings;
+
 /**
  * The event for sending tutorial messages to players.
  */
@@ -22,9 +24,9 @@ public class TutorialEvent extends TradeFlowEvent {
     /**
      * Sends the tutorial messages to all players.
      */
-    public TutorialEvent(boolean isAsync) {
+    public TutorialEvent(boolean isAsync, IMessageSettings messageSettings) {
         super(isAsync);
-        List<String> tutorial = Config.get().getTutorial();
+        List<String> tutorial = messageSettings.getTutorial();
         if (tutorial.isEmpty() || Bukkit.getOnlinePlayers().size() < 1) {
             return;
         }

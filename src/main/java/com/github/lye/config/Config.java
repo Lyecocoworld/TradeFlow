@@ -1,9 +1,26 @@
 package com.github.lye.config;
 
+import com.github.lye.config.settings.IEconomicEventSettings;
+import com.github.lye.config.settings.IGuiSettings;
+import com.github.lye.config.settings.IMessageSettings;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.config.settings.IPricingSettings;
+import com.github.lye.config.settings.IShopDefinitions;
+import com.github.lye.config.settings.IAutosellSettings;
+import com.github.lye.config.settings.impl.DefaultEconomicEventSettings;
+import com.github.lye.config.settings.impl.DefaultGuiSettings;
+import com.github.lye.config.settings.impl.DefaultMessageSettings;
+import com.github.lye.config.settings.impl.DefaultPluginSettings;
+import com.github.lye.config.settings.impl.DefaultPricingSettings;
+import com.github.lye.config.settings.impl.DefaultShopDefinitions;
+import com.github.lye.config.settings.impl.DefaultAutosellSettings;
 import com.github.lye.data.CollectFirst;
 import com.github.lye.data.CollectFirst.CollectFirstSetting;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
@@ -12,423 +29,362 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
-import com.github.lye.util.TradeFlowLogger;
 import com.github.lye.util.Format;
+import com.github.lye.util.TradeFlowLogger;
 
 /**
  * The class for loading and storing the configuration options.
  */
 public class Config {
 
-    // The static instance of the config.
     private static Config config;
-    // The list of config filenames.
-    private static final String[] filenames = { "config.yml", "shops.yml",
-        "playerdata.yml", "messages.yml" };
-    // The list of files.
+    private static TradeFlow pluginInstance;
+
+    private static final String[] filenames = { 
+        "config.yml", 
+        "shops.yml",
+        "data/defaults/playerdata.yml", 
+        "messages.yml",
+        "modules/pricing.yml",
+        "modules/features.yml",
+        "modules/organizations.yml",
+        "modules/general.yml",
+        "modules/families.yml"
+    };
+    
     private static File[] files;
-    // The list of configs.
     private static YamlConfiguration[] configs;
 
-    @Getter private final boolean databaseEnabled;
-    @Getter private final double timePeriod;
-    @Getter private final double volatility;
-    @Getter private final double sellPriceDifference;
-    @Getter private final boolean durabilityFunction;
-    @Getter private final Integer minimumPlayers;
-    @Getter private final double interest;
-    @Getter private final double tutorialUpdate;
-    @Getter private final boolean webServer;
-    @Getter private final Integer port;
-    @Getter private final String background;
-    @Getter private final String logLevel;
-    @Getter private final String locale;
-    @Getter private final boolean enableSellLimits;
-    @Getter private final boolean enableCollection;
-    @Getter private final boolean enableLoans;
-    @Getter private final int maxActiveLoans;
+    private final IPluginSettings pluginSettings;
+    private final IPricingSettings pricingSettings;
+    private final IGuiSettings guiSettings;
+    private final IMessageSettings messageSettings;
+    private final IShopDefinitions shopDefinitions;
+    private final IAutosellSettings autosellSettings;
+    private final IEconomicEventSettings economicEventSettings;
 
-    // New field for collect-first default setting
-    @Getter private final CollectFirstSetting collectFirstDefault;
+    public IMessageSettings getMessageSettings() { return messageSettings; }
+    public IShopDefinitions getShopDefinitions() { return shopDefinitions; }
+    public IPluginSettings getPluginSettings() { return pluginSettings; }
+    public IPricingSettings getPricingSettings() { return pricingSettings; }
+    public IGuiSettings getGuiSettings() { return guiSettings; }
+    public IAutosellSettings getAutosellSettings() { return autosellSettings; }
+    public IEconomicEventSettings getEconomicEventSettings() { return economicEventSettings; }
 
-    // New fields for pricing configuration
-    @Getter private final boolean allowUncraftEdges;
-    @Getter private final boolean allowCompressionEdges;
-    @Getter private final boolean treatReversibleAsDerived;
-    @Getter private final double antiArbitrageFee;
-
-    @Getter private final double startPrice;
-
-    @Getter private final String notInShop;
-    @Getter private final String notEnoughMoney;
-    @Getter private final String notEnoughSpace;
-    @Getter private final String notEnoughItems;
-
-    @Getter private final String runOutOfBuys;
-    @Getter private final String runOutOfSells;
-    @Getter private final String shopPurchase;
-    @Getter private final String shopSell;
-    @Getter private final String holdItemInHand;
-    @Getter private final String enchantmentError;
-    @Getter private final String autosellProfit;
-    @Getter private final String invalidShopSection;
-    @Getter private final String backgroundPaneText;
-    @Getter private final String guiTitleShop;
-    @Getter private final String permissionDenied;
-    @Getter private final String adminReloadingShops;
-    @Getter private final String adminShopsReloaded;
-    @Getter private final String adminPricesExported;
-    @Getter private final String adminPricesImported;
-    @Getter private final String adminShopRemoved;
-    @Getter private final String adminShopNotFound;
-    @Getter private final String adminInvalidPrice;
-    @Getter private final String adminPriceSet;
-    @Getter private final String adminPricesUpdating;
-    @Getter private final String adminPricesUpdated;
-    @Getter private final String guiBackToMenu;
-    @Getter private final String guiGoToPage;
-
-    @Getter private final String playersOnly;
-    @Getter private final String autosellNoEnchanted;
-    @Getter private final String loanUsage;
-    @Getter private final String loanPaidBack;
-    @Getter private final String loanNotEnoughMoneyPayback;
-    @Getter private final String loanInvalidAmount;
-    @Getter private final String loanLimitReached;
-    @Getter private final String loanNotEnoughMoneyLoan;
-    @Getter private final String loanInfo;
-    @Getter private final String sellSuccess;
-    @Getter private final String guiTitleSellPanel;
-
-    @Getter private final String marketOpeningGui;
-    @Getter private final String autotradeInvalidShopName;
-    @Getter private final String autotradeDisabled;
-    @Getter private final String autotradeEnabled;
-    @Getter private final String autotradeToggled;
-    @Getter private final String loanTakenSuccess;
-    @Getter private final String playerNotFound;
-
-    @Getter private final String adminMigrationUsage;
-    @Getter private final String adminMigrationMysqlRequired;
-    @Getter private final String adminMigrationStarted;
-    @Getter private final String adminMigrationNoFile;
-    @Getter private final String adminMigrationNoData;
-    @Getter private final String adminMigrationComplete;
-    @Getter private final String adminMigrationError;
-
-    @Getter private final List<String> shopLore;
-    @Getter private final List<String> shopGdpLore;
-    @Getter private final List<String> purchaseBuyLore;
-    @Getter private final List<String> purchaseSellLore;
-    @Getter private final List<String> autosellLore;
-    @Getter private final List<String> help;
-    @Getter private final List<String> adminHelp;
-    @Getter private final List<String> tutorial;
-
-    @Getter private final ConfigurationSection shops;
-    @Getter private final ConfigurationSection sections;
-    @Getter private final ConfigurationSection economicEvents;
-    @Getter private ConfigurationSection autosell;
-
-    @Getter private final String guiLockedStyle;
-    private final boolean guiLockedTipsMetalsHint; // Lombok getter disabled; explicit getters defined below
-
-
-
-    // MANUALLY ADDED GETTERS END
-
-    public String getMessage(String key) {
-        return configs[3].getString(key);
-    }
-
-    // Explicit getters for compatibility in code calling either naming style
-    public boolean isGuiLockedTipsMetalsHint() { return guiLockedTipsMetalsHint; }
-    public boolean getGuiLockedTipsMetalsHint() { return guiLockedTipsMetalsHint; }
-
-
-    /**
-     * Initializes the config files.
-     */
-    public static void init() {
+    public static void init(TradeFlow tradeFlow, TradeFlowLogger logger) {
+        pluginInstance = tradeFlow;
         try {
-            initializeConfig();
+            initializeConfig(logger);
         } catch (Exception e) {
-            Format.getLog().info("Failed to initialize config.");
-            Format.getLog().config(e.toString());
+            logger.severe("Failed to initialize config: " + e.getMessage());
+            
+            // Critical Fallback: Ensure config is not null to prevent NPEs downstream
+            if (config == null) {
+                logger.severe("Activating EMERGENCY FALLBACK for Config.");
+                files = new File[filenames.length];
+                configs = new YamlConfiguration[filenames.length]; 
+                for (int i = 0; i < configs.length; i++) configs[i] = new YamlConfiguration();
+                // Call safe mode constructor
+                config = new Config(configs, files, logger, true);
+            }
         }
     }
 
-    private static void initializeConfig() {
+    private static void initializeConfig(TradeFlowLogger logger) {
         files = new File[filenames.length];
         configs = new YamlConfiguration[filenames.length];
-        config = new Config();
+        
+        // Ensure initial non-null state
+        for (int i = 0; i < configs.length; i++) {
+            configs[i] = new YamlConfiguration();
+        }
+        
+        config = new Config(configs, files, logger, false);
     }
 
-    public static YamlConfiguration getShopsConfig() {
-        return configs[1];
+    private static YamlConfiguration getOrCreateConfigAt(int index) {
+        if (configs == null || configs.length != filenames.length) {
+            configs = new YamlConfiguration[filenames.length];
+        }
+        if (configs[index] == null) {
+            configs[index] = new YamlConfiguration();
+        }
+        return configs[index];
     }
 
-    public static YamlConfiguration getConfigConfig() {
-        return configs[0];
-    }
+    public static YamlConfiguration getShopsConfig() { return getOrCreateConfigAt(1); }
+    public static YamlConfiguration getConfigConfig() { return getOrCreateConfigAt(0); }
+    public static YamlConfiguration getMessagesConfig() { return getOrCreateConfigAt(3); }
+    public static YamlConfiguration getPlayerdataConfig() { return getOrCreateConfigAt(2); }
+    public static YamlConfiguration getPricingModule() { return getOrCreateConfigAt(4); }
+    public static YamlConfiguration getFeaturesModule() { return getOrCreateConfigAt(5); }
+    public static YamlConfiguration getOrgsModule() { return getOrCreateConfigAt(6); }
+    public static YamlConfiguration getGeneralModule() { return getOrCreateConfigAt(7); }
+    public static YamlConfiguration getFamiliesModule() { return getOrCreateConfigAt(8); }
 
-    /**
-     * Gets the config.
-     *
-     * @return the config object
-     */
-    public static Config get() {
-        return config;
-    }
+    public static Config get() { return config; }
 
-    private Config() {
-        TradeFlow instance = TradeFlow.getInstance();
+    private Config(YamlConfiguration[] configs, File[] files, TradeFlowLogger logger, boolean safeMode) {
+        TradeFlow instance = pluginInstance;
+        
+        // If safeMode is true, skip all IO and logic, just initialize empty settings
+        if (safeMode) {
+            this.pluginSettings = new DefaultPluginSettings(configs[7], configs[4], configs[5], logger);
+            this.pricingSettings = new DefaultPricingSettings(configs[4], logger);
+            this.guiSettings = new DefaultGuiSettings(configs[7], logger);
+            this.messageSettings = new DefaultMessageSettings(configs[3]);
+            this.shopDefinitions = new DefaultShopDefinitions(configs[1], logger);
+            this.autosellSettings = new DefaultAutosellSettings(configs[2], instance != null ? new File(instance.getDataFolder(), "playerdata.yml") : null, logger);
+            this.economicEventSettings = new DefaultEconomicEventSettings(configs[4], logger, instance);
+            return;
+        }
+
         for (int i = 0; i < filenames.length; i++) {
-            if (!new File(instance.getDataFolder(), filenames[i]).exists()) {
-                instance.saveResource(filenames[i], false);
+            File targetFile = new File(instance.getDataFolder(), filenames[i]);
+            if (!targetFile.exists()) {
+                if (filenames[i].contains("/")) {
+                    targetFile.getParentFile().mkdirs();
+                }
+                try {
+                    instance.saveResource(filenames[i], false);
+                } catch (IllegalArgumentException e) {
+                    logger.warning("Could not save resource " + filenames[i] + ": " + e.getMessage());
+                }
             }
         }
 
         saveWebFolder();
 
-        for (int i = 0; i < filenames.length; i++) {
-            File file = new File(instance.getDataFolder(), filenames[i]);
-            if (!file.exists()) {
-                instance.getLogger().info("Failed to load config file: " + filenames[i]);
-                continue;
+        // 1. Load root config (config.yml) first to read module paths
+        File configFile = new File(instance.getDataFolder(), "config.yml");
+        if (configFile.exists()) {
+             files[0] = configFile;
+             configs[0] = loadYamlWithRecovery(configFile, "config.yml", "config.yml", logger);
+        }
+
+        // 2. Parse module redirections
+        java.util.Map<String, String> modulePaths = new java.util.HashMap<>();
+        if (configs[0] != null) {
+            ConfigurationSection modules = configs[0].getConfigurationSection("modules");
+            if (modules != null) {
+                for (String key : modules.getKeys(false)) {
+                    modulePaths.put(key, modules.getString(key));
+                }
             }
+        }
+
+        for (int i = 0; i < filenames.length; i++) {
+            // Skip config.yml as it is already loaded
+            if (i == 0) continue;
+
+            String filename = filenames[i];
+            
+            // Check for module redirection
+            if (i == 4 && modulePaths.get("pricing") != null) filename = modulePaths.get("pricing");
+            if (i == 5 && modulePaths.get("features") != null) filename = modulePaths.get("features");
+            if (i == 6 && modulePaths.get("organizations") != null) filename = modulePaths.get("organizations");
+            if (i == 7 && modulePaths.get("general") != null) filename = modulePaths.get("general");
+            if (i == 8 && modulePaths.get("families") != null) filename = modulePaths.get("families");
+
+            File file = new File(instance.getDataFolder(), filename);
+            if (!file.exists()) {
+                // Determine if we should fail or try default
+                File defaultFile = new File(instance.getDataFolder(), filenames[i]);
+                if (defaultFile.exists()) {
+                    file = defaultFile;
+                    logger.info("Module file " + filename + " not found, falling back to " + filenames[i]);
+                } else {
+                    // Critical fallback: Try to save the resource again if it matches a default filename
+                    if (filename.equals(filenames[i])) {
+                        try {
+                            if (filename.contains("/")) file.getParentFile().mkdirs();
+                            instance.saveResource(filename, false);
+                            logger.info("Restored missing default config file: " + filename);
+                        } catch (Exception e) {
+                             logger.warning("Could not restore " + filename + ": " + e.getMessage());
+                        }
+                    }
+                    
+                    if (!file.exists()) {
+                        instance.getLogger().info("Failed to load config file: " + filename + " (Path: " + file.getAbsolutePath() + ")");
+                        // Initialize empty config to prevent NPE
+                        configs[i] = new YamlConfiguration();
+                        files[i] = file;
+                        continue;
+                    }
+                }
+            }
+            // Ensure files[i] is assigned before loading
             files[i] = file;
-            configs[i] = YamlConfiguration.loadConfiguration(files[i]);
+            configs[i] = loadYamlWithRecovery(files[i], filename, filenames[i], logger);
+        }
+        
+        // Ensure ALL configs are initialized, even if loop logic missed something (i.e., config.yml if not exists)
+        for (int i = 0; i < filenames.length; i++) {
+             if (configs[i] == null) {
+                 logger.warning("Config index " + i + " was null. Initializing empty config.");
+                 configs[i] = new YamlConfiguration();
+             }
+        }
+        
+        // 3. Special check for messages redirection within general module (OR theme preset)
+        if (configs[7] != null) {
+             String theme = configs[7].getString("gui.theme", "default");
+             String msgFile = configs[7].getString("system.messages-file"); // Manual override
+             
+             if ("violet".equalsIgnoreCase(theme)) {
+                 msgFile = "messages_violet.yml";
+                 logger.info("Applying VIOLET theme for messages.");
+             }
+             
+             if (msgFile != null) {
+                 File target = new File(instance.getDataFolder(), msgFile);
+                 if (target.exists()) {
+                     files[3] = target;
+                     configs[3] = loadYamlWithRecovery(target, msgFile, "messages.yml", logger);
+                     logger.info("Loaded custom messages file: " + msgFile);
+                 } else {
+                     // Try to load from resource if not found in data folder (first run)
+                      try {
+                          if (instance.getResource(msgFile) != null) {
+                              instance.saveResource(msgFile, false);
+                              files[3] = target;
+                              configs[3] = loadYamlWithRecovery(target, msgFile, "messages.yml", logger);
+                              logger.info("Created and loaded custom messages file: " + msgFile);
+                          }
+                      } catch (Exception ignored) {}
+                 }
+             }
         }
 
-        this.databaseEnabled = configs[0].getBoolean("database-enabled", false);
-        this.logLevel = configs[0].getString("log-level", "INFO");
-        Format.loadLogger(Level.parse(logLevel));
-        TradeFlowLogger logger = Format.getLog();
-
-        this.timePeriod = configs[0].getDouble("time-period", 30);
-        logger.finer("Time period: " + timePeriod);
-        this.volatility = configs[0].getDouble("volatility", 0.5);
-        logger.finer("Volatility: " + volatility);
-        this.sellPriceDifference = configs[0].getDouble("sell-price-difference", 20);
-        logger.finer("Sell price difference: " + sellPriceDifference);
-        this.durabilityFunction = configs[0].getBoolean("durability-function", true);
-        logger.finer("Durability function: " + durabilityFunction);
-        this.minimumPlayers = configs[0].getInt("minimum-players", 2);
-        logger.finer("Minimum players: " + minimumPlayers);
-        this.interest = configs[0].getDouble("interest", 0.05);
-        logger.finer("Interest: " + interest);
-        this.tutorialUpdate = configs[0].getDouble("tutorial-update", 300);
-        logger.finer("Tutorial update: " + tutorialUpdate);
-        this.webServer = configs[0].getBoolean("web-server", true);
-        logger.finer("Web-Server: " + webServer);
-        this.port = configs[0].getInt("port", 8989);
-        logger.finer("Port: " + port);
-        this.background = configs[0].getString("background", "BLACK_STAINED_GLASS_PANE");
-        logger.finer("Background: " + background);
-        this.locale = configs[0].getString("locale", "en_US");
-        Format.loadLocale(this.locale);
-        logger.finer("Locale: " + locale);
-        this.enableSellLimits = configs[0].getBoolean("enable-sell-limits", false);
-        logger.finer("Skip Max Limits: " + enableSellLimits);
-        this.enableCollection = configs[0].getBoolean("enable-collection", true);
-        logger.finer("Collection Enabled: " + enableCollection);
-        this.enableLoans = configs[0].getBoolean("enable-loans", false);
-        logger.finer("Loans Enabled: " + enableLoans);
-        this.maxActiveLoans = configs[0].getInt("max-active-loans", 5);
-        logger.finer("Max Active Loans: " + maxActiveLoans);
-
-        // Load collect-first default setting
-        String collectFirstDefaultString = configs[0].getString("access.collect-first.default", "NONE");
-        this.collectFirstDefault = CollectFirstSetting.valueOf(collectFirstDefaultString.toUpperCase());
-        logger.finer("Collect First Default: " + collectFirstDefault);
-
-        // Load new pricing configuration fields
-        this.allowUncraftEdges = configs[0].getBoolean("pricing.allow-uncraft-edges", false);
-        logger.finer("Allow Uncraft Edges: " + allowUncraftEdges);
-        this.allowCompressionEdges = configs[0].getBoolean("pricing.allow-compression-edges", true);
-        logger.finer("Allow Compression Edges: " + allowCompressionEdges);
-        this.treatReversibleAsDerived = configs[0].getBoolean("pricing.treat-reversible-as-derived", true);
-        logger.finer("Treat Reversible As Derived: " + treatReversibleAsDerived);
-        this.antiArbitrageFee = configs[0].getDouble("pricing.anti-arbitrage-fee", 0.01);
-        logger.finer("Anti Arbitrage Fee: " + antiArbitrageFee);
-
-        this.startPrice = configs[0].getDouble("start-price", 10.0);
-        logger.finer("Default Start Price: " + startPrice);
-
-        this.notInShop = configs[3].getString("not-in-shop");
-        logger.finest("Not in shop: " + notInShop);
-        this.notEnoughMoney = configs[3].getString("not-enough-money");
-        logger.finest("Not enough money: " + notEnoughMoney);
-        this.notEnoughSpace = configs[3].getString("not-enough-space");
-        logger.finest("Not enough space: " + notEnoughSpace);
-        this.notEnoughItems = configs[3].getString("not-enough-items");
-        logger.finest("Not enough items: " + notEnoughItems);
-
-        this.runOutOfBuys = configs[3].getString("run-out-of-buys");
-        logger.finest("Run out of buys: " + runOutOfBuys);
-        this.runOutOfSells = configs[3].getString("run-out-of-sells");
-        logger.finest("Run out of sells: " + runOutOfSells);
-        this.shopPurchase = configs[3].getString("shop-purchase");
-        logger.finest("Shop purchase: " + shopPurchase);
-        this.shopSell = configs[3].getString("shop-sell");
-        logger.finest("Shop sell: " + shopSell);
-        this.holdItemInHand = configs[3].getString("hold-item-in-hand");
-        logger.finest("Hold item in hand: " + holdItemInHand);
-        this.enchantmentError = configs[3].getString("enchantment-error");
-        logger.finest("Enchantment error: " + enchantmentError);
-        this.autosellProfit = configs[3].getString("autosell-profit");
-        logger.finest("Autosell profit: " + autosellProfit);
-        this.invalidShopSection = configs[3].getString("invalid-shop-section");
-        logger.finest("Invalid shop section: " + invalidShopSection);
-        this.backgroundPaneText = configs[3].getString("background-pane-text", "<obf>|</obf>");
-        logger.finest("Background pane text: " + backgroundPaneText);
-
-        this.guiLockedStyle = configs[0].getString("gui.locked_style", "ghost");
-        logger.finer("GUI Locked Style: " + guiLockedStyle);
-        this.guiLockedTipsMetalsHint = configs[0].getBoolean("gui.locked_tips.metals_hint", true);
-        logger.finer("GUI Locked Tips Metals Hint: " + guiLockedTipsMetalsHint);
-
-        this.guiTitleShop = configs[3].getString("gui-title-shop");
-        logger.finest("GUI Title Shop: " + guiTitleShop);
-        this.permissionDenied = configs[3].getString("permission-denied");
-        logger.finest("Permission Denied: " + permissionDenied);
-        this.adminReloadingShops = configs[3].getString("admin-reloading-shops");
-        logger.finest("Admin Reloading Shops: " + adminReloadingShops);
-        this.adminShopsReloaded = configs[3].getString("admin-shops-reloaded");
-        logger.finest("Admin Shops Reloaded: " + adminShopsReloaded);
-        this.adminPricesExported = configs[3].getString("admin-prices-exported");
-        logger.finest("Admin Prices Exported: " + adminPricesExported);
-        this.adminPricesImported = configs[3].getString("admin-prices-imported");
-        logger.finest("Admin Prices Imported: " + adminPricesImported);
-        this.adminShopRemoved = configs[3].getString("admin-shop-removed");
-        logger.finest("Admin Shop Removed: " + adminShopRemoved);
-        this.adminShopNotFound = configs[3].getString("admin-shop-not-found");
-        logger.finest("Admin Shop Not Found: " + adminShopNotFound);
-        this.adminInvalidPrice = configs[3].getString("admin-invalid-price");
-        logger.finest("Admin Invalid Price: " + adminInvalidPrice);
-        this.adminPriceSet = configs[3].getString("admin-price-set");
-        logger.finest("Admin Price Set: " + adminPriceSet);
-        // Load new fields
-        this.adminPricesUpdating = configs[3].getString("admin-prices-updating");
-        logger.finest("Admin Prices Updating: " + adminPricesUpdating);
-        this.adminPricesUpdated = configs[3].getString("admin-prices-updated");
-        logger.finest("Admin Prices Updated: " + adminPricesUpdated);
-
-        this.guiBackToMenu = configs[3].getString("gui-back-to-menu");
-        logger.finest("GUI Back to Menu: " + guiBackToMenu);
-        this.guiGoToPage = configs[3].getString("gui-go-to-page");
-        logger.finest("GUI Go to Page: " + guiGoToPage);
-
-        this.playersOnly = configs[3].getString("players-only");
-        logger.finest("Players Only: " + playersOnly);
-        this.autosellNoEnchanted = configs[3].getString("autosell-no-enchanted");
-        logger.finest("Autosell No Enchanted: " + autosellNoEnchanted);
-        this.loanUsage = configs[3].getString("loan-usage");
-        logger.finest("Loan Usage: " + loanUsage);
-        this.loanPaidBack = configs[3].getString("loan-paid-back");
-        logger.finest("Loan Paid Back: " + loanPaidBack);
-        this.loanNotEnoughMoneyPayback = configs[3].getString("loan-not-enough-money-payback");
-        logger.finest("Loan Not Enough Money Payback: " + loanNotEnoughMoneyPayback);
-        this.loanInvalidAmount = configs[3].getString("loan-invalid-amount");
-        logger.finest("Loan Invalid Amount: " + loanInvalidAmount);
-        this.loanLimitReached = configs[3].getString("loan-limit-reached");
-        logger.finest("Loan Limit Reached: " + loanLimitReached);
-        this.loanNotEnoughMoneyLoan = configs[3].getString("loan-not-enough-money-loan");
-        logger.finest("Loan Not Enough Money Loan: " + loanNotEnoughMoneyLoan);
-        this.loanInfo = configs[3].getString("loan-info");
-        logger.finest("Loan Info: " + loanInfo);
-        this.sellSuccess = configs[3].getString("sell-success");
-        logger.finest("Sell Success: " + sellSuccess);
-        this.guiTitleSellPanel = configs[3].getString("gui-title-sell-panel");
-        logger.finest("GUI Title Sell Panel: " + guiTitleSellPanel);
-
-        this.marketOpeningGui = configs[3].getString("market-opening-gui");
-        logger.finest("Market Opening GUI: " + marketOpeningGui);
-        this.autotradeInvalidShopName = configs[3].getString("autotrade-invalid-shop-name");
-        logger.finest("Autotrade Invalid Shop Name: " + autotradeInvalidShopName);
-        this.autotradeDisabled = configs[3].getString("autotrade-disabled");
-        logger.finest("Autotrade Disabled: " + autotradeDisabled);
-        this.autotradeEnabled = configs[3].getString("autotrade-enabled");
-        logger.finest("Autotrade Enabled: " + autotradeEnabled);
-        this.autotradeToggled = configs[3].getString("autotrade-toggled");
-        logger.finest("Autotrade Toggled: " + autotradeToggled);
-        this.loanTakenSuccess = configs[3].getString("loan-taken-success");
-        logger.finest("Loan Taken Success: " + loanTakenSuccess);
-        this.playerNotFound = configs[3].getString("player-not-found");
-        logger.finest("Player Not Found: " + playerNotFound);
-
-        // Admin Migration Messages
-        this.adminMigrationUsage = configs[3].getString("admin-migration-usage");
-        logger.finest("Admin Migration Usage: " + adminMigrationUsage);
-        this.adminMigrationMysqlRequired = configs[3].getString("admin-migration-mysql-required");
-        logger.finest("Admin Migration MySQL Required: " + adminMigrationMysqlRequired);
-        this.adminMigrationStarted = configs[3].getString("admin-migration-started");
-        logger.finest("Admin Migration Started: " + adminMigrationStarted);
-        this.adminMigrationNoFile = configs[3].getString("admin-migration-no-file");
-        logger.finest("Admin Migration No File: " + adminMigrationNoFile);
-        this.adminMigrationNoData = configs[3].getString("admin-migration-no-data");
-        logger.finest("Admin Migration No Data: " + adminMigrationNoData);
-        this.adminMigrationComplete = configs[3].getString("admin-migration-complete");
-        logger.finest("Admin Migration Complete: " + adminMigrationComplete);
-        this.adminMigrationError = configs[3].getString("admin-migration-error");
-        logger.finest("Admin Migration Error: " + adminMigrationError);
-
-        this.shopLore = configs[3].getStringList("shop-lore");
-        logger.finest("Shop lore: " + Arrays.toString(shopLore.toArray()));
-        this.shopGdpLore = configs[3].getStringList("shop-gdp-lore");
-        logger.finest("GDP shop lore: " + Arrays.toString(shopGdpLore.toArray()));
-        this.purchaseBuyLore = configs[3].getStringList("purchase-buy-lore");
-        logger.finest("Purchase buy lore: " + Arrays.toString(purchaseBuyLore.toArray()));
-        this.purchaseSellLore = configs[3].getStringList("purchase-sell-lore");
-        logger.finest("Purchase sell lore: " + Arrays.toString(purchaseSellLore.toArray()));
-        this.autosellLore = configs[3].getStringList("autosell-lore");
-        logger.finest("Autosell lore: " + Arrays.toString(autosellLore.toArray()));
-        this.help = configs[3].getStringList("help");
-        logger.finest("Help: " + Arrays.toString(help.toArray()));
-        this.adminHelp = configs[3].getStringList("admin-help");
-        logger.finest("AdminHelp: " + Arrays.toString(adminHelp.toArray()));
-        this.tutorial = configs[3].getStringList("tutorial");
-        logger.finest("Tutorial: " + Arrays.toString(tutorial.toArray()));
-
-        this.shops = configs[1].getConfigurationSection("shops");
-        logger.finer("Loaded shops configuration.");
-        this.sections = configs[1].getConfigurationSection("sections");
-        logger.finer("Loaded sections configuration.");
-        this.economicEvents = configs[0].getConfigurationSection("economic-events");
-        logger.finer("Loaded economic events configuration.");
-
-        this.autosell = configs[2].getConfigurationSection("autosell");
-        logger.finer("Loaded autosell configuration.");
+        this.pluginSettings = new DefaultPluginSettings(configs[7], configs[4], configs[5], logger);
+        this.pricingSettings = new DefaultPricingSettings(configs[4], logger);
+        this.guiSettings = new DefaultGuiSettings(configs[7], logger);
+        this.messageSettings = new DefaultMessageSettings(configs[3]);
+        this.shopDefinitions = new DefaultShopDefinitions(configs[1], logger);
+        this.autosellSettings = new DefaultAutosellSettings(configs[2], files[2], logger);
+        this.economicEventSettings = new DefaultEconomicEventSettings(configs[4], logger, instance);
     }
 
-    public void setAutosell(@NotNull ConfigurationSection section) {
-        configs[2].set("autosell", section);
-        try {
-            configs[2].save(files[2]);
-        } catch (IOException e) {
-            Format.getLog().severe("Could not save autosell data to playerdata.yml!");
-            e.printStackTrace();
-        }
-    }
+    public String getNotInShop() { return messageSettings.getNotInShop(); }
+    public String getRunOutOfSells() { return messageSettings.getRunOutOfSells(); }
+    public String getRunOutOfBuys() { return messageSettings.getRunOutOfBuys(); }
+    public String getNotEnoughMoney() { return messageSettings.getNotEnoughMoney(); }
+    public boolean isEnableSellLimits() { return pluginSettings.isEnableSellLimits(); }
+    public String getGuiLockedStyle() { return guiSettings.getGuiLockedStyle(); }
+    public boolean isDurabilityFunction() { return pluginSettings.isDurabilityFunction(); }
+    public boolean isEnableDynamicPricing() { return pluginSettings.isEnableDynamicPricing(); }
+    public String getCentralBankAccount() { return pluginSettings.getCentralBankAccount(); }
+    public double getInitialCapital() { return pluginSettings.getInitialCapital(); }
+    public void setAutosell(@NotNull ConfigurationSection section) { autosellSettings.setAutosell(section); }
 
     private void saveWebFolder() {
-        TradeFlow instance = TradeFlow.getInstance();
+        TradeFlow instance = pluginInstance;
         File webFolder = new File(instance.getDataFolder(), "web");
-        if (!webFolder.exists()) {
-            webFolder.mkdir();
-        }
+        if (!webFolder.exists()) webFolder.mkdir();
         File buildFolder = new File(webFolder, "build");
-        if (!buildFolder.exists()) {
-            buildFolder.mkdir();
-        }
-        String[] files = { "index.html", "favicon.png",
-            "global.css", "build/bundle.js", "build/bundle.js.map" };
+        if (!buildFolder.exists()) buildFolder.mkdir();
+        String[] files = { "index.html" };
         for (String file : files) {
             File webFile = new File(webFolder, file);
             if (!webFile.exists()) {
-                instance.saveResource("web/" + file, true);
+                try {
+                    instance.saveResource("web/" + file, true);
+                } catch (IllegalArgumentException e) {
+                    TradeFlowLogger logger = instance.getTradeLogger();
+                    if (logger != null) {
+                        logger.warning("Could not save web resource: " + file + " (Not found in JAR)");
+                    }
+                }
             }
+        }
+    }
+
+    private YamlConfiguration loadYamlWithRecovery(File file, String logicalName, String defaultResourceName, TradeFlowLogger logger) {
+        YamlConfiguration loaded = new YamlConfiguration();
+        if (file == null || !file.exists()) {
+            return loaded;
+        }
+
+        String content;
+        try {
+            content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+        } catch (IOException ioEx) {
+            logger.warning("Could not read config file " + logicalName + ": " + ioEx.getMessage());
+            return loaded;
+        }
+
+        try {
+            loaded.loadFromString(content);
+            return loaded;
+        } catch (Exception parseEx) {
+            String sanitized = sanitizeYamlContent(content);
+            if (!sanitized.equals(content)) {
+                try {
+                    YamlConfiguration sanitizedConfig = new YamlConfiguration();
+                    sanitizedConfig.loadFromString(sanitized);
+                    backupCorruptedFile(file.toPath(), logger);
+                    Files.writeString(file.toPath(), sanitized, StandardCharsets.UTF_8);
+                    logger.warning("Recovered invalid YAML characters in " + logicalName + " and rewrote sanitized content.");
+                    return sanitizedConfig;
+                } catch (Exception sanitizeEx) {
+                    logger.warning("Sanitized YAML still invalid for " + logicalName + ": " + sanitizeEx.getMessage());
+                }
+            }
+
+            backupCorruptedFile(file.toPath(), logger);
+            logger.warning("Cannot parse " + logicalName + " (" + parseEx.getMessage() + "). Trying default resource " + defaultResourceName + ".");
+
+            TradeFlow instance = pluginInstance;
+            File defaultFile = new File(instance.getDataFolder(), defaultResourceName);
+            if (!defaultFile.exists()) {
+                try {
+                    instance.saveResource(defaultResourceName, false);
+                } catch (Exception saveEx) {
+                    logger.warning("Could not restore default resource " + defaultResourceName + ": " + saveEx.getMessage());
+                }
+            }
+
+            if (defaultFile.exists()) {
+                try {
+                    String defaultContent = Files.readString(defaultFile.toPath(), StandardCharsets.UTF_8);
+                    YamlConfiguration defaultCfg = new YamlConfiguration();
+                    defaultCfg.loadFromString(sanitizeYamlContent(defaultContent));
+                    logger.warning("Loaded fallback config from " + defaultResourceName + " for " + logicalName + ".");
+                    return defaultCfg;
+                } catch (Exception defaultEx) {
+                    logger.warning("Fallback resource is invalid for " + logicalName + ": " + defaultEx.getMessage());
+                }
+            }
+
+            return new YamlConfiguration();
+        }
+    }
+
+    private String sanitizeYamlContent(String input) {
+        if (input == null || input.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c == '\t' || c == '\n' || c == '\r' || c >= 0x20) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    private void backupCorruptedFile(Path sourcePath, TradeFlowLogger logger) {
+        try {
+            TradeFlow instance = pluginInstance;
+            Path backupDir = instance.getDataFolder().toPath().resolve("backups").resolve("config-corrupt");
+            Files.createDirectories(backupDir);
+            String ts = String.valueOf(System.currentTimeMillis());
+            Path backup = backupDir.resolve(sourcePath.getFileName().toString() + "." + ts + ".broken");
+            Files.copy(sourcePath, backup);
+        } catch (Exception backupEx) {
+            logger.warning("Could not backup corrupted config file " + sourcePath.getFileName() + ": " + backupEx.getMessage());
         }
     }
 }

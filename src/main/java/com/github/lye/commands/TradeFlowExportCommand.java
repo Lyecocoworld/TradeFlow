@@ -4,9 +4,7 @@ import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
-import com.github.lye.config.Config;
 import com.github.lye.config.TxtHandler;
-import com.github.lye.util.Format;
 
 import java.util.List;
 
@@ -23,12 +21,12 @@ public class TradeFlowExportCommand extends BaseCommand {
         }
 
         if (args.length > 0) {
-            Format.sendMessage(sender, getUsage());
+            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
-        TxtHandler.exportPrices(plugin.getDatabase());
-        Format.sendMessage(sender, Config.get().getAdminPricesExported());
+        TxtHandler.exportPrices(plugin.getDatabase(), plugin.getShopUtil(), plugin.getTradeLogger(), plugin.getDataFolder());
+        plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminPricesExported(), null);
         return true;
     }
 

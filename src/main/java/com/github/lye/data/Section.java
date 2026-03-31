@@ -10,6 +10,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import com.github.lye.util.Format;
+import com.github.lye.util.TradeFlowLogger;
 
 /**
  * The class that represents a shop section.
@@ -22,19 +23,24 @@ public class Section {
     protected final int posX;
     protected final int posY;
     protected final Map<String, Shop> shops;
+    private final TradeFlowLogger logger;
+    private final ShopUtil shopUtil;
 
     /**
      * Constructor for the section class.
      *
      * @param section The configuration section for the section.
      */
-    protected Section(String name, ConfigurationSection section, Database database) {
+    protected Section(String name, ConfigurationSection section, Database database, TradeFlowLogger logger, ShopUtil shopUtil) {
+        this.logger = logger;
+        this.shopUtil = shopUtil;
         Material material = Material.matchMaterial(section.getString("image", "BARRIER"));
         if (material == null) {
             material = Material.BARRIER;
-            Format.getLog().severe("Invalid material for section " + name + ".");
+            logger.severe("Invalid material for section " + name + ".");
         }
-        Component component = MiniMessage.miniMessage().deserialize(section.getString("display", ""));
+        Component component = MiniMessage.miniMessage().deserialize(section.getString("display", ""))
+                .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false); // Force non-italic
         ItemStack item = new ItemStack(material);
         item.editMeta(meta -> meta.displayName(component));
         item.getItemMeta().lore(new ArrayList<Component>());
@@ -47,25 +53,34 @@ public class Section {
 
     protected Map<String, Shop> loadShops(String sectionName, Database database) {
         Map<String, Shop> shops = new HashMap<String, Shop>();
-        Format.getLog().info("[DEBUG] Loading shops for section: '" + sectionName + "'");
-        for (String shopName : ShopUtil.getShopNames(database)) {
-            Shop shop = ShopUtil.getShop(database, shopName, true);
+        logger.fine("Loading shops for section: '" + sectionName + "'");
+        for (String shopName : shopUtil.getShopNames()) {
+            if (shopName == null || shopName.trim().isEmpty()) {
+                logger.fine("Encountered null/blank shop name in Section.loadShops; skipping.");
+                continue;
+            }
+            Shop shop = shopUtil.getShop(shopName, true);
 
-            if (shop.getSection() == null) {
-                Format.getLog().warning("[DEBUG] Shop '" + shopName + "' has a null section! Skipping.");
+            if (shop == null) {
+                logger.fine("Shop '" + shopName + "' resolved to null; skipping.");
                 continue;
             }
 
-            Format.getLog().info("[DEBUG] Checking shop: '" + shopName + "' | Its section: '" + shop.getSection() + "' | Against: '" + sectionName + "'");
+            if (shop.getSection() == null) {
+                logger.fine("Shop '" + shopName + "' has a null section! Skipping.");
+                continue;
+            }
+
+            logger.fine("Checking shop: '" + shopName + "' | Its section: '" + shop.getSection() + "' | Against: '" + sectionName + "'");
 
             if (shop.getSection().equalsIgnoreCase(sectionName)) {
                 shops.put(shopName, shop);
-                Format.getLog().info("[DEBUG] Added shop '" + shopName + "' to section '" + sectionName + "'");
+                logger.fine("Added shop '" + shopName + "' to section '" + sectionName + "'");
             } else {
-                Format.getLog().info("[DEBUG] Shop '" + shopName + "' section '" + shop.getSection() + "' does not match section '" + sectionName + "'. Skipping.");
+                logger.fine("Shop '" + shopName + "' section '" + shop.getSection() + "' does not match section '" + sectionName + "'. Skipping.");
             }
         }
-        Format.getLog().info("[DEBUG] Finished loading for section: '" + sectionName + "'. Found " + shops.size() + " matching shops.");
+        logger.fine("Finished loading for section: '" + sectionName + "'. Found " + shops.size() + " matching shops.");
         return shops;
     }
 

@@ -1,9 +1,4 @@
 package com.github.lye.commands;
-
-import com.github.stefvanschie.inventoryframework.gui.GuiItem;
-import com.github.stefvanschie.inventoryframework.gui.type.ChestGui;
-import com.github.stefvanschie.inventoryframework.pane.OutlinePane;
-import com.github.stefvanschie.inventoryframework.pane.Pane.Priority;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -23,7 +18,7 @@ import com.github.lye.data.ShopUtil;
 
 import com.github.lye.util.Format;
 import com.github.lye.commands.core.BaseCommand;
-import com.github.lye.gui.ShopGuiManager; // Import ShopGuiManager
+import com.github.lye.gui.GuiNavigator;
 
 /**
  * The command for buying and selling items.
@@ -33,18 +28,11 @@ import org.bukkit.command.CommandExecutor;
 
 public class MarketCommand extends BaseCommand implements CommandExecutor {
 
-    private final ShopGuiManager shopGuiManager; // Add instance of ShopGuiManager
+    private final GuiNavigator guiNavigator; 
 
-    public MarketCommand(@NotNull TradeFlow plugin, @NotNull ShopGuiManager shopGuiManager) {
-        super(plugin, "tfmarket", "tradeflow.command.market", "Market command.", "/tfmarket <buy|sell|admin>");
-        setPlayerOnly(true);
-
-        this.shopGuiManager = shopGuiManager;
-
-        // Register subcommands here (will be created in next steps)
-        // registerSubCommand(new ShopBuySubCommand(plugin));
-        // registerSubCommand(new ShopSellSubCommand(plugin));
-        // registerSubCommand(new ShopAdminSubCommand(plugin));
+    public MarketCommand(TradeFlow plugin) {
+        super(plugin, "market", "tradeflow.command.market", "View market information.", "/market");
+        this.guiNavigator = plugin.getGuiNavigator();
     }
 
     public boolean execute(@NotNull CommandSender sender, @NotNull String[] args) {
@@ -56,8 +44,15 @@ public class MarketCommand extends BaseCommand implements CommandExecutor {
         if (args.length == 0) {
             if (sender instanceof Player) {
                 Player player = (Player) sender;
-                Format.sendMessage(player, "market-opening-gui"); // Placeholder message key
-                shopGuiManager.openMainShopGui(player);
+                if (!player.hasPermission("tradeflow.use")) {
+                    plugin.getMessageService().sendErrorMessage(player, "permission-denied", null);
+                    return true;
+                }
+                plugin.getLogger().info("MarketCommand: Executing for player " + player.getName());
+                plugin.getMessageService().sendInfoMessage(player, "market-opening-gui", null);
+                guiNavigator.openMain(player);
+            } else {
+                sender.sendMessage("Only players can use this command.");
             }
             return true;
         }

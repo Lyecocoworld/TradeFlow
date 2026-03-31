@@ -46,7 +46,7 @@ public class FileServerCollectionData implements IServerCollectionData {
 
         List<String> collections = dataConfig.getStringList("collections");
         this.serverCollections.addAll(collections);
-        plugin.getLogger().info("Loaded " + this.serverCollections.size() + " server collections from server_collections.yml.");
+        // plugin.getLogger().info("Loaded " + this.serverCollections.size() + " server collections from server_collections.yml.");
         return this.serverCollections;
     }
 

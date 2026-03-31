@@ -1,0 +1,54 @@
+name: TradeFlow
+version: "0.1"
+main: com.github.lye.TradeFlow
+description: "TradeFlow is a dynamic economy plugin that regulates prices based on supply and demand."
+author: "Lye"
+website: "https://github.com/Lyecocoworld/TradeFlow"
+prefix: "TradeFlow"
+folia-supported: true
+
+api-version: "1.21"
+
+dependencies:
+  server:
+    Vault:
+      required: true
+      load: BEFORE
+    zMenu:
+      required: false
+      load: BEFORE
+
+libraries:
+  - "org.eclipse.jetty:jetty-server:11.0.19"
+  - "org.eclipse.jetty:jetty-servlet:11.0.19"
+
+permissions:
+  tradeflow.admin:
+    description: "Allows usage of all TradeFlow admin commands and features"
+    default: op
+    children:
+      tradeflow.command.admin: true
+      tradeflow.reload: true
+      tradeflow.update: true
+
+  tradeflow.player:
+    description: "Base permission for players to use TradeFlow features"
+    default: true
+    children:
+      tradeflow.use: true
+      tradeflow.command.user: true
+      tradeflow.command.market: true
+      tradeflow.sell: true
+
+  tradeflow.use:
+    description: "Allows usage of the main shop command"
+    default: true
+  tradeflow.command.market:
+    description: "Allows usage of the market command"
+    default: true
+  tradeflow.command.user:
+    description: "Allows usage of player-facing TradeFlow commands"
+    default: true
+  tradeflow.sell:
+    description: "Allows selling items"
+    default: true

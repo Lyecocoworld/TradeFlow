@@ -1,5 +1,6 @@
 package com.github.lye.events;
 
+import com.github.lye.TradeFlow;
 import com.github.lye.data.Database;
 
 import java.util.Map;
@@ -15,8 +16,11 @@ import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
 import com.github.lye.data.Transaction;
 import com.github.lye.data.Transaction.TransactionType;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
+import com.github.lye.events.TradeFlowEvent;
 
 /**
  * The event for sending a player their money from items they have auto-sold.
@@ -32,11 +36,12 @@ public class AutosellProfitEvent extends TradeFlowEvent {
         super(isAsync);
     }
 
-    public static void runDeposit(Database database) {
+    public static void runDeposit(Database database, ShopUtil shopUtil, EconomyDataUtil economyDataUtil,
+                                  IMessageService messageService, IMessageSettings messageSettings, TradeFlow plugin) {
         Database.acquireWriteLock();
         try {
-            for (String s : ShopUtil.getShopNames(database)) {
-                Shop shop = ShopUtil.getShop(database, s, true);
+            for (String s : shopUtil.getShopNames()) {
+                Shop shop = shopUtil.getShop(s, true);
                 Map<UUID, Integer> autosell = shop.getAutosell();
 
                 if (autosell.isEmpty()) {
@@ -54,11 +59,12 @@ public class AutosellProfitEvent extends TradeFlowEvent {
                     double total = price * amount;
                     OfflinePlayer player = Bukkit.getOfflinePlayer(entry.getKey());
                     EconomyUtil.getEconomy().depositPlayer(player, total);
-                    ShopUtil.addTransaction(database, new Transaction(
+                    EconomyUtil.transferFromCentralBank(total, plugin);
+                    shopUtil.addTransaction(new Transaction(
                             price, amount, entry.getKey(), s, TransactionType.SELL));
-                    EconomyDataUtil.increaseEconomyData("GDP", total / 2);
+                    economyDataUtil.increaseEconomyData("GDP", total / 2);
                     double loss = shop.getPrice() * amount - total;
-                    EconomyDataUtil.increaseEconomyData("LOSS", loss);
+                    economyDataUtil.increaseEconomyData("LOSS", loss);
                     String balance = Format.currency(EconomyUtil.getEconomy().getBalance(player));
 
                     TagResolver resolver = TagResolver.resolver(
@@ -66,14 +72,16 @@ public class AutosellProfitEvent extends TradeFlowEvent {
                             Placeholder.parsed("balance", balance));
 
                     if (player.isOnline()) {
-                        Format.sendMessage(Objects.requireNonNull(player.getPlayer()),
-                                Config.get().getAutosellProfit(), resolver);
+                        messageService.sendInfoMessage(
+                                Objects.requireNonNull(player.getPlayer()),
+                                messageSettings.getAutosellProfit(),
+                                resolver);
                     }
 
                 }
 
                 shop.clearAutosell();
-                ShopUtil.putShop(database, s, shop);
+                shopUtil.putShop(s, shop);
             }
         } finally {
             Database.releaseWriteLock();

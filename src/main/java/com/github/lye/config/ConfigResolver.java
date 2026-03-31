@@ -34,7 +34,7 @@ public final class ConfigResolver {
     }
 
     // 3) Global default in config.yml
-    String def = config.getString("access.collect-first.default", "NONE");
+    String def = config.getString("access.collect-first.default", "PLAYER");
     return CFMode.valueOf(def.toUpperCase(Locale.ROOT));
   }
 }

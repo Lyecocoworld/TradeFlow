@@ -8,11 +8,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -21,441 +19,453 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import com.github.lye.config.Config;
-import com.github.lye.data.CollectFirst.CollectFirstSetting; // Uncommented
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.config.settings.IPricingSettings;
 import com.github.lye.util.TradeFlowLogger;
 import com.github.lye.util.Format;
 
-@Builder
-@AllArgsConstructor
 public class Shop implements Serializable {
 
     private static final long serialVersionUID = -6381163788906178955L;
 
-    private static double M = 0.05;
-    private static double Z = 1.75;
-
-    @Getter private final String name;
-    @Getter @Setter private int[] buys;
-    @Getter @Setter private int[] sells;
-    @Getter @Setter private double[] prices;
-    @Getter @Setter private int size;
-    @Getter private final boolean enchantment;
-    @Getter @Setter private CollectFirst setting;
-    @Getter @Setter private Map<UUID, Integer> autosell;
-    @Getter @Setter private int totalBuys;
-    @Getter @Setter private int totalSells;
-    @Getter @Setter private boolean locked;
-    @Getter @Setter private double customSpd;
-    @Getter @Setter private double volatility;
-    @Getter @Setter private double change;
-    @Getter @Setter private int maxBuys;
-    @Getter @Setter private int maxSells;
-    @Getter @Setter private int updateRate;
-    @Getter @Setter private int timeSinceUpdate;
-    @Getter @Setter private String section;
-    @Getter @Setter private int globalStockLimit;
-    @Getter @Setter private String globalStockPeriod;
-    @Getter @Setter private Map<UUID, Integer> recentBuys;
-    @Getter @Setter private Map<UUID, Integer> recentSells;
-    @Getter @Setter private String access;
-
-
+    private final String name;
+    private int[] buys;
+    private int[] sells;
+    private double[] prices;
+    private double basePrice; // NEW: Permanent anchor price from config
+    private int size;
+    private final boolean enchantment;
+    private CollectFirst setting;
+    private Map<UUID, Integer> autosell;
+    private int totalBuys;
+    private int totalSells;
+    private boolean locked;
+    private double customSpd;
+    private double volatility;
+    private double change;
+    private int maxBuys;
+    private int maxSells;
+    private int updateRate;
+    private int timeSinceUpdate;
+    private String section;
+    private int globalStockLimit;
+    private String globalStockPeriod;
+    private Map<UUID, Integer> recentBuys;
+    private Map<UUID, Integer> recentSells;
+    private String access;
     
-    public Shop(String name, ResultSet rs, Gson gson) throws SQLException {
+    private int currentStock;
+    private int minBaseStock;
+    private int maxBaseStock;
+
+    private final IPricingSettings pricingSettings;
+    private final IPluginSettings pluginSettings;
+    private final TradeFlowLogger logger;
+    
+    // Constructor manually implemented (was AllArgsConstructor)
+    public Shop(String name, int[] buys, int[] sells, double[] prices, int size, boolean enchantment, 
+                CollectFirst setting, Map<UUID, Integer> autosell, int totalBuys, int totalSells, 
+                boolean locked, double customSpd, double volatility, double change, int maxBuys, 
+                int maxSells, int updateRate, int timeSinceUpdate, String section, int globalStockLimit, 
+                String globalStockPeriod, Map<UUID, Integer> recentBuys, Map<UUID, Integer> recentSells, 
+                String access, int currentStock, int minBaseStock, int maxBaseStock, 
+                IPricingSettings pricingSettings, IPluginSettings pluginSettings, TradeFlowLogger logger) {
         this.name = name;
-        this.enchantment = rs.getBoolean("enchantment");
-        Format.getLog().info("[DEBUG] Loading shop from DB: " + name + ", enchantment: " + this.enchantment);
-        this.locked = rs.getBoolean("locked");
+        this.buys = buys;
+        this.sells = sells;
+        this.prices = prices;
+        this.size = size;
+        this.enchantment = enchantment;
+        this.setting = setting;
+        this.autosell = autosell;
+        this.totalBuys = totalBuys;
+        this.totalSells = totalSells;
+        this.locked = locked;
+        this.customSpd = customSpd;
+        this.volatility = volatility;
+        this.change = change;
+        this.maxBuys = maxBuys;
+        this.maxSells = maxSells;
+        this.updateRate = updateRate;
+        this.timeSinceUpdate = timeSinceUpdate;
+        this.section = section;
+        this.globalStockLimit = globalStockLimit;
+        this.globalStockPeriod = globalStockPeriod;
+        this.recentBuys = recentBuys;
+        this.recentSells = recentSells;
+        this.access = access;
+        this.currentStock = currentStock;
+        this.minBaseStock = minBaseStock;
+        this.maxBaseStock = maxBaseStock;
+        this.pricingSettings = pricingSettings;
+        this.pluginSettings = pluginSettings;
+        this.logger = logger;
+    }
 
-        this.volatility = rs.getDouble("volatility");
-        if (this.volatility < 0) {
-            Format.getLog().warning("Invalid volatility from DB for " + name + ": " + this.volatility + ". Must be non-negative. Using default.");
-            this.volatility = Config.get().getVolatility();
+    // Getters and Setters
+    public int getSize() { return size; }
+    public void setSize(int size) { this.size = size; }
+    public int getTotalBuys() { return totalBuys; }
+    public void setTotalBuys(int totalBuys) { this.totalBuys = totalBuys; }
+    public int getTotalSells() { return totalSells; }
+    public void setTotalSells(int totalSells) { this.totalSells = totalSells; }
+    public double getCustomSpd() { return customSpd; }
+    public void setCustomSpd(double customSpd) { this.customSpd = customSpd; }
+    public int getUpdateRate() { return updateRate; }
+    public void setUpdateRate(int updateRate) { this.updateRate = updateRate; }
+    public int getTimeSinceUpdate() { return timeSinceUpdate; }
+    public void setTimeSinceUpdate(int timeSinceUpdate) { this.timeSinceUpdate = timeSinceUpdate; }
+    public String getAccess() { return access; }
+    public void setAccess(String access) { this.access = access; }
+    public boolean isEnchantment() { return enchantment; }
+    public boolean isLocked() { return locked; }
+    public double getVolatility() { return volatility; }
+    public String getSection() { return section; }
+    public int getMaxBuys() { return maxBuys; }
+    public int getMaxSells() { return maxSells; }
+    public int[] getBuys() { return buys; }
+    public int[] getSells() { return sells; }
+    public double[] getPrices() { return prices; }
+    public Map<UUID, Integer> getAutosell() { return autosell; }
+    public Map<UUID, Integer> getRecentBuys() { return recentBuys; }
+    public Map<UUID, Integer> getRecentSells() { return recentSells; }
+    public CollectFirst getSetting() { return setting; }
+    public int getGlobalStockLimit() { return globalStockLimit; }
+    public String getGlobalStockPeriod() { return globalStockPeriod; }
+    public String getName() { return name; }
+    public double getChange() { return change; }
+    public void setSetting(CollectFirst setting) { this.setting = setting; }
+    
+    public int getCurrentStock() { return currentStock; }
+    public void setCurrentStock(int currentStock) { this.currentStock = currentStock; }
+    public int getMinBaseStock() { return minBaseStock; }
+    public void setMinBaseStock(int minBaseStock) { this.minBaseStock = minBaseStock; }
+    public int getMaxBaseStock() { return maxBaseStock; }
+    public void setMaxBaseStock(int maxBaseStock) { this.maxBaseStock = maxBaseStock; }
+
+    // Builder Pattern Implementation
+    public static ShopBuilder builder() {
+        return new ShopBuilder();
+    }
+
+    public static class ShopBuilder {
+        private String name;
+        private int[] buys;
+        private int[] sells;
+        private double[] prices;
+        private int size;
+        private boolean enchantment;
+        private CollectFirst setting;
+        private Map<UUID, Integer> autosell;
+        private int totalBuys;
+        private int totalSells;
+        private boolean locked;
+        private double customSpd;
+        private double volatility;
+    private volatile double change;
+        private int maxBuys;
+        private int maxSells;
+        private int updateRate;
+        private int timeSinceUpdate;
+        private String section;
+        private int globalStockLimit;
+        private String globalStockPeriod;
+        private Map<UUID, Integer> recentBuys;
+        private Map<UUID, Integer> recentSells;
+        private String access;
+    private volatile int currentStock;
+        private int minBaseStock;
+        private int maxBaseStock;
+        private IPricingSettings pricingSettings;
+        private IPluginSettings pluginSettings;
+        private TradeFlowLogger logger;
+
+        ShopBuilder() {}
+
+        public ShopBuilder name(String name) { this.name = name; return this; }
+        public ShopBuilder buys(int[] buys) { this.buys = buys; return this; }
+        public ShopBuilder sells(int[] sells) { this.sells = sells; return this; }
+        public ShopBuilder prices(double[] prices) { this.prices = prices; return this; }
+        public ShopBuilder size(int size) { this.size = size; return this; }
+        public ShopBuilder enchantment(boolean enchantment) { this.enchantment = enchantment; return this; }
+        public ShopBuilder setting(CollectFirst setting) { this.setting = setting; return this; }
+        public ShopBuilder autosell(Map<UUID, Integer> autosell) { this.autosell = autosell; return this; }
+        public ShopBuilder totalBuys(int totalBuys) { this.totalBuys = totalBuys; return this; }
+        public ShopBuilder totalSells(int totalSells) { this.totalSells = totalSells; return this; }
+        public ShopBuilder locked(boolean locked) { this.locked = locked; return this; }
+        public ShopBuilder customSpd(double customSpd) { this.customSpd = customSpd; return this; }
+        public ShopBuilder volatility(double volatility) { this.volatility = volatility; return this; }
+        public ShopBuilder change(double change) { this.change = change; return this; }
+        public ShopBuilder maxBuys(int maxBuys) { this.maxBuys = maxBuys; return this; }
+        public ShopBuilder maxSells(int maxSells) { this.maxSells = maxSells; return this; }
+        public ShopBuilder updateRate(int updateRate) { this.updateRate = updateRate; return this; }
+        public ShopBuilder timeSinceUpdate(int timeSinceUpdate) { this.timeSinceUpdate = timeSinceUpdate; return this; }
+        public ShopBuilder section(String section) { this.section = section; return this; }
+        public ShopBuilder globalStockLimit(int globalStockLimit) { this.globalStockLimit = globalStockLimit; return this; }
+        public ShopBuilder globalStockPeriod(String globalStockPeriod) { this.globalStockPeriod = globalStockPeriod; return this; }
+        public ShopBuilder recentBuys(Map<UUID, Integer> recentBuys) { this.recentBuys = recentBuys; return this; }
+        public ShopBuilder recentSells(Map<UUID, Integer> recentSells) { this.recentSells = recentSells; return this; }
+        public ShopBuilder access(String access) { this.access = access; return this; }
+        public ShopBuilder currentStock(int currentStock) { this.currentStock = currentStock; return this; }
+        public ShopBuilder minBaseStock(int minBaseStock) { this.minBaseStock = minBaseStock; return this; }
+        public ShopBuilder maxBaseStock(int maxBaseStock) { this.maxBaseStock = maxBaseStock; return this; }
+        public ShopBuilder pricingSettings(IPricingSettings pricingSettings) { this.pricingSettings = pricingSettings; return this; }
+        public ShopBuilder pluginSettings(IPluginSettings pluginSettings) { this.pluginSettings = pluginSettings; return this; }
+        public ShopBuilder logger(TradeFlowLogger logger) { this.logger = logger; return this; }
+
+        public Shop build() {
+            return new Shop(name, buys, sells, prices, size, enchantment, setting, autosell, totalBuys, totalSells, 
+                            locked, customSpd, volatility, change, maxBuys, maxSells, updateRate, timeSinceUpdate, 
+                            section, globalStockLimit, globalStockPeriod, recentBuys, recentSells, access, 
+                            currentStock, minBaseStock, maxBaseStock, pricingSettings, pluginSettings, logger);
         }
+    }
 
-        this.section = rs.getString("section");
-
-        Type mapType = new TypeToken<Map<UUID, Integer>>() {}.getType();
-        this.autosell = gson.fromJson(rs.getString("autosell"), mapType);
-        if (this.autosell == null) {
-            this.autosell = new HashMap<>();
-        }
-
-        this.recentBuys = gson.fromJson(rs.getString("recent_buys"), mapType);
-        if (this.recentBuys == null) {
-            this.recentBuys = new HashMap<>();
-        }
-
-        this.recentSells = gson.fromJson(rs.getString("recent_sells"), mapType);
-        if (this.recentSells == null) {
-            this.recentSells = new HashMap<>();
-        }
-
-        this.buys = gson.fromJson(rs.getString("buys_history"), int[].class);
-        this.sells = gson.fromJson(rs.getString("sells_history"), int[].class);
-        this.prices = gson.fromJson(rs.getString("prices_history"), double[].class);
-
-        if (this.prices == null || this.prices.length > 1_000_000) { // Sanity check
-            Format.getLog().warning("Invalid prices history from DB for " + name + ". Initializing with default.");
-            this.prices = new double[]{Config.get().getStartPrice()};
-        }
-        if (this.buys == null || this.buys.length != this.prices.length) {
-            this.buys = new int[this.prices.length];
-        }
-        if (this.sells == null || this.sells.length != this.prices.length) {
-            this.sells = new int[this.prices.length];
-        }
-
-        this.size = this.prices.length;
-        
-        // Default values for non-persistent fields
-        this.totalBuys = 0; // Or calculate if needed
+    public Shop(String name,
+                boolean enchantment,
+                double startPrice,
+                IPricingSettings pricingSettings,
+                IPluginSettings pluginSettings,
+                TradeFlowLogger logger) {
+        this.name = name;
+        this.enchantment = enchantment;
+        this.buys = new int[]{0};
+        this.sells = new int[]{0};
+        this.prices = new double[]{startPrice};
+        this.basePrice = startPrice; // Set base price here
+        this.size = 1;
+        this.autosell = new ConcurrentHashMap<>();
+        this.recentBuys = new ConcurrentHashMap<>();
+        this.recentSells = new ConcurrentHashMap<>();
+        this.totalBuys = 0;
         this.totalSells = 0;
         this.customSpd = -1;
         this.change = 0;
-
-        this.maxBuys = rs.getInt("max_buys");
-        if (this.maxBuys < -1) {
-            Format.getLog().warning("Invalid max_buys from DB for " + name + ": " + this.maxBuys + ". Using -1.");
-            this.maxBuys = -1;
-        }
-
-        this.maxSells = rs.getInt("max_sells");
-        if (this.maxSells < -1) {
-            Format.getLog().warning("Invalid max_sells from DB for " + name + ": " + this.maxSells + ". Using -1.");
-            this.maxSells = -1;
-        }
-
+        this.maxBuys = -1;
+        this.maxSells = -1;
         this.updateRate = 1;
         this.timeSinceUpdate = 0;
-
-        // Load collect_first_setting from ResultSet
-        String collectFirstSettingString = rs.getString("collect_first_setting");
-        if (collectFirstSettingString == null) {
-            collectFirstSettingString = "NONE"; // Default value
-        }
-        this.setting = new CollectFirst(collectFirstSettingString);
+        this.pricingSettings = Objects.requireNonNull(pricingSettings, "pricingSettings");
+        this.pluginSettings = Objects.requireNonNull(pluginSettings, "pluginSettings");
+        this.logger = Objects.requireNonNull(logger, "logger");
+        this.volatility = pricingSettings.getVolatility();
+        this.locked = false;
+        this.section = null;
+        this.globalStockLimit = -1;
+        this.globalStockPeriod = "";
+        this.access = "";
+        this.setting = new CollectFirst("NONE");
+        this.currentStock = 0;
+        this.minBaseStock = -1;
+        this.maxBaseStock = -1;
     }
-
 
     public void loadConfiguration(ConfigurationSection config, String sectionName) {
-        TradeFlowLogger logger = Format.getLog();
+        TradeFlowLogger logger = this.logger != null ? this.logger : Format.getLog();
         locked = config.getBoolean("locked", false);
-        logger.finest("Locked: " + this.locked);
-
         customSpd = config.getDouble("sell-price-difference", -1);
-        if (customSpd < -1) {
-            logger.warning("Invalid sell-price-difference for " + name + ": " + customSpd + ". Must be -1 or greater. Using default.");
-            customSpd = -1;
-        }
-        logger.finest("Custom SPD: " + this.customSpd);
-
-        volatility = config.getDouble("volatility", Config.get().getVolatility());
-        if (volatility < 0) {
-            logger.warning("Invalid volatility for " + name + ": " + volatility + ". Must be non-negative. Using default.");
-            volatility = Config.get().getVolatility();
-        }
-        logger.finest("Volatility: " + this.volatility);
-
+        volatility = config.getDouble("volatility", pricingSettings.getVolatility());
         section = sectionName;
-        logger.finest("Section: " + this.section);
-
         maxBuys = config.getInt("max-buy", -1);
-        if (maxBuys < -1) {
-            logger.warning("Invalid max-buy for " + name + ": " + maxBuys + ". Must be -1 or greater. Using -1 (unlimited).");
-            maxBuys = -1;
-        }
-        logger.finest("Max Buys: " + this.maxBuys);
-
         maxSells = config.getInt("max-sell", -1);
-        if (maxSells < -1) {
-            logger.warning("Invalid max-sell for " + name + ": " + maxSells + ". Must be -1 or greater. Using -1 (unlimited).");
-            maxSells = -1;
-        }
-        logger.finest("Max Sells: " + this.maxSells);
-
         updateRate = config.getInt("update-rate", 1);
-        if (updateRate <= 0) {
-            logger.warning("Invalid update-rate for " + name + ": " + updateRate + ". Must be positive. Using 1.");
-            updateRate = 1;
-        }
-        logger.finest("Update Rate: " + this.updateRate);
-
-        globalStockLimit = config.getInt("global-stock-limit", -1);
-        if (globalStockLimit < -1) {
-            logger.warning("Invalid global-stock-limit for " + name + ": " + globalStockLimit + ". Must be -1 or greater. Using -1 (unlimited).");
-            globalStockLimit = -1;
-        }
-        logger.finest("Global Stock Limit: " + this.globalStockLimit);
-
-        globalStockPeriod = config.getString("global-stock-period", "");
-        logger.finest("Global Stock Period: " + this.globalStockPeriod);
-
+        minBaseStock = config.getInt("base-stock-min", -1);
+        maxBaseStock = config.getInt("base-stock-max", -1);
         access = config.getString("access", "");
-        logger.finest("Access: " + this.access);
 
         double startPrice = config.getDouble("price");
-        if (startPrice < 0) {
-            logger.warning("Invalid start price for " + name + ": " + startPrice + ". Must be non-negative. Using 0.");
-            startPrice = 0;
-        }
-
         if (startPrice != prices[0]) {
-            boolean found = false;
-            for (double price : prices) {
-                if (price == startPrice) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                prices[size - 1] = startPrice;
-                logger.info("Price changed for " + section + " to " + startPrice
-                        + " because the price was changed in the config.");
-            }
+            prices[size - 1] = startPrice;
         }
 
-        if (section == null) {
-            logger.warning("Shop " + config.getName() + " was loaded with no section!");
-        }
+        globalStockLimit = config.getInt("global-stock-limit", -1);
+        globalStockPeriod = config.getString("global-stock-period", "weekly");
     }
 
-    public int getBuyCount() {
-        return buys[size - 1];
-    }
-
-    public int getSellCount() {
-        return sells[size - 1];
-    }
-
-    public double getPrice() {
-        return prices[size - 1];
-    }
-
-    public void setPrice(double price) {
-        if (price < 0) {
-            Format.getLog().warning("Attempted to set negative price for " + name + ": " + price + ". Setting to 0.");
-            prices[size - 1] = 0;
+    public synchronized double getPrice() { return prices[size - 1]; }
+    public synchronized void setPrice(double price) { 
+        prices[size - 1] = Math.max(0, price); 
+        
+        // Update change based on the initial base price from config
+        if (this.basePrice > 0) {
+            this.change = (prices[size - 1] - this.basePrice) / this.basePrice;
         } else {
-            prices[size - 1] = price;
+            this.change = 0;
         }
     }
 
-    public double getSellPrice() {
-        return getPrice() - getPrice() * getSpd() * 0.01;
+    public double getBasePrice() {
+        return basePrice;
     }
 
-    public void addBuys(UUID player, int buyCount) {
-        TradeFlowLogger logger = Format.getLog();
-        if (recentBuys.containsKey(player)) {
-            recentBuys.merge(player, buyCount, (a, b) -> (int) a + (int) b);
-            logger.finest("Recent buys: " + recentBuys.get(player));
-        } else {
-            recentBuys.put(player, buyCount);
-            logger.finest("New recent buys: " + recentBuys.get(player));
-        }
-        this.buys[size - 1] = buyCount + buys[size - 1];
-        logger.finer("Increased buys by " + buyCount + " to " + buys[size - 1]);
-        logger.finest("Updated at time period " + (size - 1));
-    }
-
-    public void addSells(UUID player, int sellCount) {
-        TradeFlowLogger logger = Format.getLog();
-        if (recentSells.containsKey(player)) {
-            recentSells.merge(player, sellCount, (a, b) -> (int) a + (int) b);
-            logger.finest("Recent sells: " + recentSells.get(player));
-        } else {
-            recentSells.put(player, sellCount);
-            logger.finest("New recent sells: " + recentSells.get(player));
-        }
-        this.sells[size - 1] = sellCount + sells[size - 1];
-        logger.finer("Increased sells by " + sellCount + " to " + sells[size - 1]);
-        logger.finest("Updated at time period " + (size - 1));
-    }
-
-    public void clearAutosell() {
-        autosell.clear();
-    }
-
-    public void addAutosell(UUID uuid, int count) {
-        TradeFlowLogger logger = Format.getLog();
-        if (autosell.containsKey(uuid)) {
-            autosell.merge(uuid, count, (a, b) -> (int) a + (int) b);
-            logger.finest("Autosell: " + autosell.get(uuid) + " for " + uuid);
-        } else {
-            autosell.put(uuid, count);
-            logger.finest("New autosell: " + autosell.get(uuid) + " for " + uuid);
+    public void setBasePrice(double basePrice) {
+        this.basePrice = basePrice;
+        if (this.prices != null && this.prices.length > 0) {
+            this.prices[0] = basePrice;
         }
     }
 
-    public boolean isUnlocked(UUID player) {
-        TradeFlowLogger logger = Format.getLog();
-        logger.info(String.format("[DEBUG] Shop %s isUnlocked for player %s (UNIFIED).", name, player));
-
-        // Use AccessGateway + ConfigResolver for unified collect-first behavior
-        com.github.lye.TradeFlow plugin = com.github.lye.TradeFlow.getInstance();
-        if (plugin == null) {
-            logger.info(String.format("[DEBUG] Shop %s isUnlocked: plugin null, returning false.", name));
-            return false;
-        }
-        com.github.lye.gateway.AccessGateway gateway = plugin.getAccessGateway();
-        com.github.lye.config.ConfigResolver resolver = plugin.getConfigResolver();
-        if (gateway == null || resolver == null || !gateway.isAccessReady()) {
-            logger.info(String.format("[DEBUG] Shop %s isUnlocked: access not ready, returning false.", name));
-            return false;
-        }
-
-        com.github.lye.access.rules.CollectFirstRule.CFMode mode = resolver.resolveCFMode(null, name);
-        boolean result;
-        switch (mode) {
-            case NONE -> result = true;
-            case PLAYER -> result = gateway.hasPlayerCollected(player, name.toLowerCase(java.util.Locale.ROOT));
-            case SERVER -> result = gateway.isServerCollected(name.toLowerCase(java.util.Locale.ROOT));
-            default -> result = true;
-        }
-        logger.info(String.format("[DEBUG] Shop %s isUnlocked: mode=%s result=%s.", name, mode, result));
-        return result;
+    /**
+     * Resets the base price to the current price. 
+     * Used for rolling reference periods (e.g., resets variation every 30m).
+     */
+    public void syncBasePrice() {
+        this.basePrice = getPrice();
+        this.change = 0; // Variation resets to 0% at the start of the new period
     }
 
-    public void clearRecentPurchases() {
-        recentBuys.clear();
-        recentSells.clear();
-    }
+    public double getSellPrice() { return getPrice() - getPrice() * getSpd() * 0.01; }
 
     private double getSpd() {
-        if (customSpd != -1) {
-            return customSpd;
-        }
-        return Config.get().getSellPriceDifference();
-    }
-
-    public void timePeriod(double price) {
-        int[] newBuys = new int[size + 1];
-        int[] newSells = new int[size + 1];
-        double[] newPrices = new double[size + 1];
-
-        this.totalBuys += buys[size - 1];
-        this.totalSells += sells[size - 1];
-
-        for (int i = 0; i < size; i++) {
-            newBuys[i] = buys[i];
-            newSells[i] = sells[i];
-            newPrices[i] = prices[i];
-        }
-
-        newBuys[size] = 0;
-        newSells[size] = 0;
-        double newPrice = prices[size - 1];
-
-        if (!locked && updateRate > 0) {
-            if (timeSinceUpdate >= updateRate) {
-                newPrice = price;
-                this.timeSinceUpdate = 0;
-                this.recentBuys.clear();
-                this.recentSells.clear();
-            }
-            this.timeSinceUpdate++;
-        }
-
-        newPrices[size] = newPrice;
-        this.buys = newBuys;
-        this.sells = newSells;
-        this.prices = newPrices;
-        this.size++;
-    }
-
-    public void updateChange() {
-        if (locked || size < 2) {
-            return;
-        }
-
-        int dailyTimePeriods = (int) Math.floor(1f / (Config.get().getTimePeriod() / 1440f));
-        int start = size - dailyTimePeriods > 0 ? size - dailyTimePeriods : 0;
-        this.change = (prices[size - 1] - prices[start]) / prices[start];
+        return customSpd != -1 ? customSpd : pluginSettings.getSellPriceDifference();
     }
 
     public double strength() {
-        int x = 0;
-        int y = 1;
-        double buy = 0;
-        double sell = 0;
-
+        int x = 0, y = 1;
+        double buy = 0, sell = 0;
+        double m = pricingSettings.getPriceStrengthM();
+        double z = pricingSettings.getPriceStrengthZ();
         while (y <= size) {
             buy += buys[size - y];
             sell += sells[size - y];
             x++;
-            y = (int) Math.round(M * Math.pow(x, Z) + 0.5);
+            y = (int) Math.round(m * Math.pow(x, z) + 0.5);
         }
-
-        if (buy == 0 && sell == 0) {
-            return 0;
-        }
-
-        return (buy - sell) / (buy + sell);
+        return (buy == 0 && sell == 0) ? 0 : (buy - sell) / (buy + sell);
     }
 
-    public static Shop fromConfig(String name, ConfigurationSection config, String sectionName, boolean enchantment) {
-        Format.getLog().info("[DEBUG] Creating shop from config: " + name + ", enchantment: " + enchantment);
-        if (!enchantment && Material.matchMaterial(name) == null) {
-            Format.getLog().severe("Invalid material for shop: " + name + ". Shop will not be loaded.");
-            return null;
+    public static Shop fromConfig(String name, ConfigurationSection config, String sectionName, boolean enchantment, IPricingSettings pricingSettings, IPluginSettings pluginSettings, TradeFlowLogger logger) {
+        boolean isEnchant = enchantment || sectionName.equalsIgnoreCase("enchantments") || sectionName.equalsIgnoreCase("enchantment");
+        
+        if (!isEnchant && Material.matchMaterial(name.toUpperCase()) == null) {
+            if (Enchantment.getByKey(NamespacedKey.minecraft(name.toLowerCase())) != null) {
+                isEnchant = true;
+            }
         }
-        if (enchantment && Enchantment.getByKey(NamespacedKey.minecraft(name)) == null) {
-            Format.getLog().severe("Invalid enchantment for shop: " + name + ". Shop will not be loaded.");
-            return null;
+        
+        if (isEnchant) {
+            // Validate Enchantment key
+            if (Enchantment.getByKey(NamespacedKey.minecraft(name.toLowerCase())) == null) {
+                logger.severe("Invalid enchantment for shop: " + name + ". Skipping.");
+                return null;
+            }
+        } else {
+            // Validate Material
+            if (Material.matchMaterial(name.toUpperCase()) == null) {
+                logger.severe("Invalid material for shop: " + name + ". Skipping.");
+                return null;
+            }
         }
 
         double startPrice = config.getDouble("price");
-        // Resolve collect-first override priority:
-        // 1) shops.yml per-item: access.collect-first
-        // 2) legacy per-item: collect-first
-        // 3) global default: Config.get().getCollectFirstDefault()
-        String collectFirstSettingString = null;
-        if (config.isConfigurationSection("access")) {
-            collectFirstSettingString = config.getString("access.collect-first", null);
-        }
-        if (collectFirstSettingString == null) {
-            collectFirstSettingString = config.getString("collect-first", null);
-        }
-        if (collectFirstSettingString == null) {
-            collectFirstSettingString = Config.get().getCollectFirstDefault().name();
-        }
-
-        Shop shop = Shop.builder()
-                .name(name)
-                .enchantment(enchantment)
-                .buys(new int[1])
-                .sells(new int[1])
-                .prices(new double[]{startPrice})
-                .size(1)
-                .setting(new CollectFirst(collectFirstSettingString)) // Initialize setting
-                .autosell(new HashMap<>())
-                .recentBuys(new HashMap<>())
-                .recentSells(new HashMap<>())
-                .build();
+        Shop shop = new Shop(name, isEnchant, startPrice, pricingSettings, pluginSettings, logger);
         shop.loadConfiguration(config, sectionName);
         return shop;
     }
 
-    protected static Component getDisplayName(String name, boolean isEnchantment) {
-        name = name.toLowerCase();
-
+    public static Component getDisplayName(String name, boolean isEnchantment) {
         if (isEnchantment) {
-            Enchantment enchantment = Enchantment.getByKey(NamespacedKey.minecraft(name));
-            if (enchantment != null) {
-                return enchantment.displayName(1);
-            } else {
-                // Fallback if enchantment not found
-                return Component.text(name);
-            }
+            Enchantment e = Enchantment.getByKey(NamespacedKey.minecraft(name.toLowerCase()));
+            return e != null ? e.displayName(1) : Component.text(name);
         }
-
-        Material material = Material.matchMaterial(name);
-        if (material == null) {
-            material = Material.BARRIER;
-        }
-        return new ItemStack(material).displayName();
+        Material m = Material.matchMaterial(name.toUpperCase());
+        return new ItemStack(m != null ? m : Material.BARRIER).displayName();
     }
 
+    public Shop(String name, ResultSet rs, Gson gson, IPricingSettings pricingSettings, IPluginSettings pluginSettings, TradeFlowLogger logger) throws SQLException {
+        this.name = name;
+        this.pricingSettings = pricingSettings;
+        this.pluginSettings = pluginSettings;
+        this.logger = logger;
 
+        double currentPrice = rs.getDouble("price");
+        this.basePrice = currentPrice; // Set base price from DB
+        
+        this.enchantment = rs.getBoolean("enchantment");
+        this.locked = rs.getBoolean("locked");
+        this.volatility = rs.getDouble("volatility");
+        this.section = rs.getString("section");
+        this.maxBuys = rs.getInt("max_buys");
+        this.maxSells = rs.getInt("max_sells");
+        
+        Type intArrType = new TypeToken<int[]>(){}.getType();
+        Type doubleArrType = new TypeToken<double[]>(){}.getType();
+        Type mapType = new TypeToken<Map<UUID, Integer>>(){}.getType();
+
+        String buysJson = rs.getString("buys_history");
+        String sellsJson = rs.getString("sells_history");
+        String pricesJson = rs.getString("prices_history");
+        String autosellJson = rs.getString("autosell");
+        String recentBuysJson = rs.getString("recent_buys");
+        String recentSellsJson = rs.getString("recent_sells");
+
+        this.buys = buysJson != null ? gson.fromJson(buysJson, intArrType) : null;
+        this.sells = sellsJson != null ? gson.fromJson(sellsJson, intArrType) : null;
+        this.prices = pricesJson != null ? gson.fromJson(pricesJson, doubleArrType) : null;
+        this.autosell = autosellJson != null ? gson.fromJson(autosellJson, mapType) : null;
+        this.recentBuys = recentBuysJson != null ? gson.fromJson(recentBuysJson, mapType) : null;
+        this.recentSells = recentSellsJson != null ? gson.fromJson(recentSellsJson, mapType) : null;
+
+        if (this.autosell == null) this.autosell = new ConcurrentHashMap<>();
+        else this.autosell = new ConcurrentHashMap<>(this.autosell);
+        if (this.recentBuys == null) this.recentBuys = new ConcurrentHashMap<>();
+        else this.recentBuys = new ConcurrentHashMap<>(this.recentBuys);
+        if (this.recentSells == null) this.recentSells = new ConcurrentHashMap<>();
+        else this.recentSells = new ConcurrentHashMap<>(this.recentSells);
+
+        try {
+            String coll = rs.getString("collect_first_setting");
+            this.setting = new CollectFirst(coll != null ? coll : "NONE");
+        } catch (Exception e) {
+            this.setting = new CollectFirst("NONE");
+        }
+
+        this.currentStock = rs.getInt("current_stock");
+        this.minBaseStock = rs.getInt("min_base_stock");
+        this.maxBaseStock = rs.getInt("max_base_stock");
+        
+        if (this.buys == null) this.buys = new int[]{0};
+        if (this.sells == null) this.sells = new int[]{0};
+        if (this.prices == null || this.prices.length == 0) this.prices = new double[]{currentPrice};
+        
+        this.size = this.prices.length;
+    }
+
+    public void updateChange() {
+        if (this.basePrice > 0) {
+            this.change = (getPrice() - this.basePrice) / this.basePrice;
+        } else if (prices != null && prices.length > 1) {
+             double prev = prices[prices.length - 2];
+             double curr = prices[prices.length - 1];
+             if (prev != 0) {
+                 this.change = (curr - prev) / prev;
+             } else {
+                 this.change = 0;
+             }
+        }
+    }
+
+    public void clearAutosell() {
+        this.autosell.clear();
+    }
+
+    public void addAutosell(UUID uuid, int amount) {
+        this.autosell.merge(uuid, amount, Integer::sum);
+    }
+
+    public synchronized void addSells(UUID uuid, int amount) {
+        this.totalSells += amount;
+        this.recentSells.merge(uuid, amount, Integer::sum);
+    }
+
+    public synchronized void addBuys(UUID uuid, int amount) {
+        this.totalBuys += amount;
+        this.recentBuys.merge(uuid, amount, Integer::sum);
+    }
+
+    public void resetDailyLimits() {
+        this.recentBuys.clear();
+        this.recentSells.clear();
+        this.logger.info("Daily limits reset for shop: " + this.name);
+    }
 }

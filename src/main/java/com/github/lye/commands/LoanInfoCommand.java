@@ -29,17 +29,17 @@ public class LoanInfoCommand extends BaseCommand {
         }
 
         Player player = (Player) sender;
-        getTotalLoans(player);
+        getTotalLoans(player, plugin.getDatabase());
         return true;
     }
 
-    private void getTotalLoans(@NotNull Player player) {
+    private void getTotalLoans(@NotNull Player player, Database database) {
         Database.acquireReadLock();
         try {
             UUID uuid = player.getUniqueId();
             double total = 0;
 
-            for (Loan loan : Database.get().getLoans().values()) {
+            for (Loan loan : database.getLoans().values()) {
                 if (loan.getPlayer().equals(uuid)) {
                     if (loan.isPaid()) {
                         continue;
@@ -48,7 +48,7 @@ public class LoanInfoCommand extends BaseCommand {
                 }
             }
             TagResolver resolver = Placeholder.parsed("total", Format.currency(total));
-            Format.sendMessage(player, Config.get().getLoanInfo(), resolver);
+            plugin.getMessageService().sendInfoMessage(player, plugin.getMessageSettings().getLoanInfo(), resolver);
         } finally {
             Database.releaseReadLock();
         }

@@ -1,9 +1,10 @@
 package com.github.lye.events;
 
 import com.github.lye.data.Database;
+import com.github.lye.data.EconomyDataUtil;
+import com.github.lye.config.settings.IPluginSettings;
 
 import java.util.Map;
-import com.github.lye.data.Database;
 import com.github.lye.data.Loan;
 
 /**
@@ -20,13 +21,12 @@ public class LoanInterestEvent extends TradeFlowEvent {
         super(isAsync);
     }
 
-    public static void runUpdate() {
+    public static void runUpdate(Database database, EconomyDataUtil economyDataUtil, IPluginSettings pluginSettings, com.github.lye.TradeFlow plugin) {
         Database.acquireWriteLock();
         try {
-            Database database = Database.get();
-            for (Map.Entry<String, Loan> entry : Database.get().getLoans().entrySet()) {
+            for (Map.Entry<String, Loan> entry : database.getLoans().entrySet()) {
                 Loan loan = entry.getValue();
-                loan.update();
+                loan.update(economyDataUtil, pluginSettings, plugin);
                 database.updateLoan(entry.getKey(), loan);
             }
         } finally {

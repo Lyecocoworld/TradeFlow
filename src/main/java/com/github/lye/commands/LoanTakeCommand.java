@@ -31,51 +31,53 @@ public class LoanTakeCommand extends BaseCommand {
         }
 
         Player player = (Player) sender;
-        Config config = Config.get();
 
         if (args.length != 1) {
-            Format.sendMessage(sender, getUsage());
+            plugin.getMessageService().sendErrorMessage(sender, getUsage(), null);
             return true;
         }
 
-        Optional<Double> valueOptional = ArgumentParser.getDouble(sender, args[0], config.getLoanInvalidAmount());
+        Optional<Double> valueOptional = ArgumentParser.getDouble(sender, plugin.getMessageService(), args[0], plugin.getMessageSettings().getLoanInvalidAmount());
         if (valueOptional.isEmpty()) {
             return true;
         }
         double value = valueOptional.get();
 
         if (value <= 0) {
-            Format.sendMessage(player, config.getLoanInvalidAmount());
+            plugin.getMessageService().sendErrorMessage(player, plugin.getMessageSettings().getLoanInvalidAmount(), null);
             return true;
         }
 
         Database.acquireWriteLock();
         try {
             int activeLoanCount = 0;
-            for (Loan existingLoan : Database.get().getLoans().values()) {
+            for (Loan existingLoan : plugin.getDatabase().getLoans().values()) {
                 if (existingLoan.getPlayer().equals(player.getUniqueId()) && !existingLoan.isPaid()) {
                     activeLoanCount++;
                 }
             }
 
-            if (activeLoanCount >= config.getMaxActiveLoans()) {
-                TagResolver resolver = Placeholder.parsed("limit", String.valueOf(config.getMaxActiveLoans()));
-                Format.sendMessage(player, config.getLoanLimitReached(), resolver);
+            if (activeLoanCount >= plugin.getPluginSettings().getMaxActiveLoans()) {
+                TagResolver resolver = Placeholder.parsed("limit", String.valueOf(plugin.getPluginSettings().getMaxActiveLoans()));
+                plugin.getMessageService().sendErrorMessage(player, plugin.getMessageSettings().getLoanLimitReached(), resolver);
                 return true;
             }
 
-            if (EconomyUtil.getEconomy().getBalance(player)
-                    <= value + value * 0.05 * config.getInterest()) { // This calculation seems off, should be interest on the loan amount
-                Format.sendMessage(player, config.getLoanNotEnoughMoneyLoan());
+            // E4: Check central bank has sufficient reserves before lending
+            com.github.lye.data.CentralBankStockManager bankManager = plugin.getCentralBankStockManager();
+            if (bankManager == null || bankManager.getMonetaryReserve() < value) {
+                plugin.getMessageService().sendErrorMessage(player,
+                        "<red>The Central Bank does not have sufficient reserves to issue this loan.</red>", null);
                 return true;
             }
 
             double base = value;
-            double loanAmountWithInterest = value + value * 0.01 * config.getInterest();
+            double loanAmountWithInterest = value + value * plugin.getPluginSettings().getLoanInterestMultiplier() * plugin.getPluginSettings().getInterest();
             Loan loan = Loan.builder().player(player.getUniqueId()).value(loanAmountWithInterest).base(base).paid(false).build();
-            Database.get().getLoans().put(java.util.UUID.randomUUID().toString(), loan);
+            plugin.getDatabase().getLoans().put(java.util.UUID.randomUUID().toString(), loan);
             EconomyUtil.getEconomy().depositPlayer(player, base);
-            Format.sendMessage(sender, "loan-taken-success", Placeholder.parsed("amount", Format.currency(base)));
+            EconomyUtil.transferFromCentralBank(base, plugin);
+            plugin.getMessageService().sendInfoMessage(sender, "loan-taken-success", Placeholder.parsed("amount", Format.currency(base)));
 
         } finally {
             Database.releaseWriteLock();
