@@ -1,0 +1,10 @@
+# --- TradeFlow : Module Organisations Joueurs ---
+# Ce module permettra aux joueurs de créer des entreprises et de gérer des stocks physiques.
+
+# NOTE : Ce module est actuellement en cours de développement.
+# Les réglages seront ajoutés ici dans les prochaines mises à jour.
+
+organizations:
+  enabled: false                # Activation globale du système d'entreprises
+  creation-cost: 5000.0         # Coût de création d'une organisation
+  min-members: 1                # Membres minimum pour maintenir l'organisation

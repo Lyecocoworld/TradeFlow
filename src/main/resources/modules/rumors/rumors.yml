@@ -1,0 +1,83 @@
+# --- Rumors System (Advanced) ---
+rumors:
+  base-price: 5000.0
+  price-increase-per-buy: 500.0 # Chaque achat augmente le prix de 500$ pour tout le monde (reset quotidien)
+  cooldown-seconds: 3600 # 1 heure entre deux achats par joueur
+  broker-interaction-radius: 5.0 # Rayon d'interaction avec le courtier en blocs
+
+  # Reputation System - Points gagnés par achat au marché noir
+  reputation:
+    points-per-purchase: 10 # Points de réputation gagnés par achat
+
+  tiers:
+    cheap:
+      name: "<gray>Rumeur de Taverne</gray>"
+      price-multiplier: 0.2 # 1000$
+      accuracy: 0.60 # 60% de chance d'être vrai
+      detail: "VAGUE" # Donne juste la catégorie (ex: "Minerais")
+    
+    standard:
+      name: "<yellow>Rapport d'Espion</yellow>"
+      price-multiplier: 1.0 # 5000$
+      accuracy: 0.85 # 85% de chance d'être vrai
+      detail: "EVENT_NAME" # Donne le nom de l'event
+    
+    insider:
+      name: "<light_purple>Dossier Confidentiel</light_purple>"
+      price-multiplier: 5.0 # 25000$
+      accuracy: 1.0 # 100% vrai
+      detail: "PRECISE" # Nom + Temps exact
+
+  messages:
+    cooldown: "<red>Votre contact refuse de vous parler. Revenez dans <time> minutes.</red>"
+    price-inflation: "<yellow>L'information est très demandée. Le prix a monté à <gold><price></gold>.</yellow>"
+    fake-news-reveal: "<red>C'était un piège ! Cette information était fausse.</red>"
+    tier-cheap-lore: "On raconte que le secteur <section> va bouger..."
+    tier-standard-lore: "Il paraît que l'événement <event> se prépare."
+    tier-insider-lore: "CONFIRMÉ: <event> démarre dans exactement <time>."
+    
+    # Broker Messages
+    broker-closed-day: "<yellow>Le marché noir est fermé le jour. Revenez à la nuit tombée.</yellow>"
+    broker-hint: "<gray>Le contact se cache quelque part... Indice : <gold><location_name></gold>.</gray>"
+    broker-far: "<red>Vous êtes trop loin. Rapprochez-vous de la fumée noire pour parler.</red>"
+
+# --- Flash Sales ---
+# Paramètres de génération des ventes flash du Shadow Broker
+flash-sale:
+  item-count: 3                  # Nombre d'offres flash générées par nuit
+  discount-min: 0.30             # Remise minimale (30%)
+  discount-max: 0.60             # Remise maximale (60%)
+  stock-min: 16                  # Stock minimal par offre
+  stock-max: 64                  # Stock maximal par offre
+
+# --- Reputation System ---
+# Configuration des niveaux de réputation et leurs bonus
+reputation:
+  tiers:
+    stranger:
+      discount: 0.0       # Pas de réduction
+      stock-bonus: 0      # Pas de bonus stock
+
+    acquaintance:
+      discount: 0.05      # 5% de réduction
+      stock-bonus: 5      # +5 items en stock
+
+    trusted:
+      discount: 0.10      # 10% de réduction
+      stock-bonus: 10     # +10 items en stock
+
+    vip:
+      discount: 0.15      # 15% de réduction
+      stock-bonus: 20     # +20 items en stock
+
+    insider:
+      discount: 0.25      # 25% de réduction
+      stock-bonus: 30     # +30 items en stock
+
+# --- Shadow Broker Locations ---
+# Le courtier apparaîtra aléatoirement à l'un de ces endroits chaque nuit.
+# Format: world, x, y, z, "Nom Affiché (Indice)"
+broker-locations:
+  - "world, 100, 64, 100, La Vieille Place"
+  - "world, -50, 70, 200, Le Port Abandonné"
+  - "world, 0, 60, 0, Les Ruines Centrales"

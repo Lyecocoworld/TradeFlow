@@ -1,0 +1,83 @@
+# --- TradeFlow : Module Pricing & Banque Centrale ---
+# Ce module gère l'intelligence mathématique du shop et les réserves de l'État.
+
+# Configuration de la Banque Centrale (Régulateur mondial)
+dynamic-pricing:
+  enabled: true                 # Active le moteur de prix dynamique (Sigmoïde)
+  central-bank-account: "ServerBank" # Nom du compte Vault/NPC de la banque
+
+  # Capital initial de la banque.
+  # -1.0 = Calcul AUTOMATIQUE pour supporter la population cible pendant 14 jours.
+  initial-capital: -1.0
+
+  # Population cible que l'économie doit supporter.
+  # Les stocks mondiaux et le capital s'ajustent selon ce chiffre.
+  target-population: 500
+
+  # Nombre de jours de consommation que le stock doit couvrir (Défaut: 7)
+  # Un stock plus court (7 jours) rend les prix plus volatils.
+  # Un stock plus long (30 jours) rend les prix plus stables.
+  stock-target-days: 7
+
+  bank-indefinite: true          # La banque centrale peut prêter indéfiniment pour stabiliser les prix
+
+# Paramètres du Moteur de Prix (Pricing Engine)
+pricing:
+  default-margin: 0.10          # Marge bénéficiaire par défaut
+  default-tax: 0.05             # Taxe économique globale
+  default-volatility: 0.5       # Variation max autorisée par calcul
+  epsilon: 0.01                 # Prix plancher (évite les prix à 0)
+  byproduct-ratio: 0.7          # Part de coût récupérable sur les sous-produits
+  machine_time_cost_per_second: 0.02 # Coût du temps machine (ex: four)
+  price-strength-m: 0.05        # Facteur de pondération historique M (formule de force)
+  price-strength-z: 1.75        # Facteur de pondération historique Z (formule de force)
+
+  fuel_costs:
+    furnace_per_item: 0.15      # Coût en carburant pour un item au four
+
+# Paramètres de Marché
+market:
+  minimum-players: 2            # Joueurs min. pour actualiser les prix
+  time-period: 30               # Période pour le calcul des tendances (minutes)
+  volatility: 0.5               # Multiplicateur de volatilité globale
+  sell-price-difference: 20     # % de différence entre achat et vente
+  durability-function: true     # Réduit le prix si l'item est endommagé
+
+# Système de Taxes (Trésor Royal)
+tax:
+  enabled: true                 # Active le système de taxation
+  default-rate: 0.05            # Taxe par défaut (5%)
+  buy-rate: 0.05                # Taxe sur les achats (5%)
+  sell-rate: 0.05               # Taxe sur les ventes (5%)
+
+  # Taxe progressive basée sur le volume de transactions du joueur
+  brackets:
+    "100000": 1.0               # Jusqu'à 100k: taux normal (1x)
+    "500000": 1.5               # 100k-500k: taux majoré (1.5x)
+    "1000000": 2.0              # 500k-1M: taux élevé (2x)
+    "999999999": 3.0            # 1M+: taux très élevé (3x)
+
+  # Taxe sur les transactions importantes
+  large-transaction:
+    rate: 0.10                  # Taxe sur grosses transactions (10%)
+    threshold: 100000.0         # Seuil de grosse transaction (100k)
+
+  exemption-threshold: 100.0    # Sous ce montant, pas de taxe (100)
+  treasury-account: "RoyalTreasury" # Compte Vault pour le Trésor
+  show-info: true               # Afficher les infos de taxe aux joueurs
+  maximum-rate: 0.20            # Taux maximum de taxe (20%)
+
+# Paramètres de la Banque Centrale (valeurs par défaut)
+central-bank:
+  public-order-bonus: 0.20        # Bonus de vente quand le stock < 25% de l'idéal
+  expansion-threshold: 1.50       # Ratio de réserve au-dessus duquel la banque est en EXPANSION
+  austerity-threshold: 0.50       # Ratio de réserve en-dessous duquel la banque est en AUSTÉRITÉ
+  activity-alpha: 0.10            # Facteur de lissage exponentiel pour le suivi d'activité
+  default-daily-quota: 64         # Quota journalier par joueur par défaut (calcul stock)
+  default-population: 100         # Population cible par défaut (calcul stock)
+  default-initial-stock: 1280     # Stock initial par défaut quand aucune donnée n'existe
+
+# Paramètres des Événements Économiques
+events:
+  min-interval-ms: 3600000        # Temps minimum entre deux événements (1 heure)
+  max-interval-ms: 7200000        # Temps maximum entre deux événements (2 heures)

@@ -1,0 +1,83 @@
+# ============================================================
+# TradeFlow — Section Item Browser (zMenu config)
+# ============================================================
+# Layout (6 rows, 54 slots):
+#   Row 1: Title bar (0-8) — background fill
+#   Row 2-5: Paginated grid
+#     Grid slots: 10-16, 19-25, 28-34, 37-43
+#     (4 rows × 7 cols = 28 items per page)
+#   Row 6: Navigation bar
+#     45: Back     48: Previous    49: Page Info
+#     50: Next     53: Close
+# ============================================================
+# NOTE: Section items are loaded dynamically from shops.yml.
+# This config defines the layout structure. The actual items
+# are populated by the triumph-gui fallback SectionGui at runtime,
+# since the item list varies per section and requires dynamic
+# access checks (CollectFirst, permissions, etc.).
+# ============================================================
+
+name: "&6&l  {section-name}"
+size: 54
+
+items:
+  # ---- Background fill ----
+  border:
+    item:
+      material: BLACK_STAINED_GLASS_PANE
+      name: " "
+    slots:
+      - "0-8"
+      - "9"
+      - "17"
+      - "18"
+      - "26"
+      - "27"
+      - "35"
+      - "36"
+      - "44"
+
+  # ---- Navigation Row ----
+  nav-back:
+    slot: 45
+    item:
+      material: ARROW
+      name: "&c← Back"
+      lore:
+        - "&7Return to main menu"
+    actions:
+      type: COMMAND
+      commands:
+        - "tf shop"
+
+  nav-close:
+    slot: 53
+    item:
+      material: RED_STAINED_GLASS_PANE
+      name: "&c✗ Close"
+    actions:
+      type: CLOSE
+
+  nav-page-info:
+    slot: 49
+    item:
+      material: COMPASS
+      name: "&6Page {page}/{total-pages}"
+
+  # ---- Item Grid Placeholders ----
+  # Configure items for each section explicitly like this:
+  #
+  # diamond:
+  #   slot: 10
+  #   buttonType: tradeflow_item
+  #   itemName: "diamond"
+  #
+  # iron_ingot:
+  #   slot: 11
+  #   buttonType: tradeflow_item
+  #   itemName: "iron_ingot"
+  #
+  # gold_ingot:
+  #   slot: 12
+  #   buttonType: tradeflow_item
+  #   itemName: "gold_ingot"

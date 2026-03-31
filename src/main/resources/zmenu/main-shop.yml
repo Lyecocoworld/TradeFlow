@@ -1,0 +1,106 @@
+# ============================================================
+# TradeFlow — Main Shop Hub (zMenu config)
+# ============================================================
+# Layout (5 rows, 45 slots):
+#   Row 1: Title bar — utility button (slot 8)
+#   Row 2-4: Pyramid layout for shop sections (7-3-1)
+#     Row 2: slots 10-16
+#     Row 3: slots 21-23
+#     Row 4: slot 31
+#   Row 5: Help button (slot 44)
+# ============================================================
+
+name: "&6&l  TradeFlow Market"
+size: 45
+
+items:
+  # ---- Background fill ----
+  background:
+    item:
+      material: GRAY_STAINED_GLASS_PANE
+      name: " "
+    slots:
+      - "0-7"
+      - "9"
+      - "17"
+      - "18"
+      - "26"
+      - "27"
+      - "35"
+      - "36-43"
+
+  # ---- Row 1: Utility Button (Slot 8) ----
+  utility:
+    slot: 8
+    buttonType: tradeflow_section
+    sectionName: "__utility__"
+    item:
+      material: CHEST
+      name: "&6&lUtilities"
+      lore:
+        - ""
+        - "&7Open the utility panel"
+        - ""
+        - "&eClick to open"
+
+  # ---- Row 2: Section slots 10-16 (up to 7 sections) ----
+  # These are placeholders — actual sections are loaded dynamically.
+  # The GuiNavigator.openMain() will fall back to triumph-gui for
+  # the dynamic section grid, which reads sections from shops.yml at runtime.
+  #
+  # To use zMenu for sections, configure each section explicitly:
+  #
+  # section-building:
+  #   slot: 10
+  #   buttonType: tradeflow_section
+  #   sectionName: "building"
+  #
+  # section-farming:
+  #   slot: 11
+  #   buttonType: tradeflow_section
+  #   sectionName: "farming"
+  #
+  # section-mining:
+  #   slot: 12
+  #   buttonType: tradeflow_section
+  #   sectionName: "mining"
+  #
+  # section-combat:
+  #   slot: 13
+  #   buttonType: tradeflow_section
+  #   sectionName: "combat"
+  #
+  # section-redstone:
+  #   slot: 14
+  #   buttonType: tradeflow_section
+  #   sectionName: "redstone"
+  #
+  # section-misc:
+  #   slot: 15
+  #   buttonType: tradeflow_section
+  #   sectionName: "misc"
+  #
+  # section-enchantments:
+  #   slot: 16
+  #   buttonType: tradeflow_section
+  #   sectionName: "enchantments"
+
+  # ---- Row 3: Slots 21-23 (3 secondary sections) ----
+  # Configure additional sections here if needed.
+
+  # ---- Row 4: Slot 31 (1 featured section) ----
+  # Configure a featured/seasonal section here if needed.
+
+  # ---- Row 5: Help Button (Slot 44) ----
+  help:
+    slot: 44
+    buttonType: tradeflow_section
+    sectionName: "__help__"
+    item:
+      material: KNOWLEDGE_BOOK
+      name: "&6&lHelp & Tutorial"
+      lore:
+        - ""
+        - "&7Learn how to use the market"
+        - ""
+        - "&eClick to open"
