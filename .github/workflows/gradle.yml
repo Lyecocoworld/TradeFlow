@@ -10,22 +10,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4.1.1
-    - name: Set up JDK 17
+    - uses: actions/checkout@v4
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        distribution: 'adopt'
-        java-version: '17'
-        check-latest: true
+        distribution: 'temurin'
+        java-version: '21'
         cache: 'gradle'
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2.11.1
-    - name: Gradle Build Action
-      uses: gradle/gradle-build-action@v2.11.1
+    - name: Build with Gradle
+      uses: gradle/gradle-build-action@v3
       with:
-        arguments: test build
-        gradle-version: '8.5'
-    - uses: actions/upload-artifact@v4.1.0
+        arguments: build
+    - uses: actions/upload-artifact@v4
       with:
-        name: 'Auto-Tune-Artifact'
+        name: 'TradeFlow-JAR'
         path: build/libs/*.jar
