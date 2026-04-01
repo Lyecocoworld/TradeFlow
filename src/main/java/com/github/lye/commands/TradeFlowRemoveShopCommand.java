@@ -35,10 +35,10 @@ public class TradeFlowRemoveShopCommand extends BaseCommand {
 
         Database.acquireWriteLock();
         try {
-            if (ShopUtil.removeShop(shopName)) {
-                Format.sendMessage(sender, Config.get().getAdminShopRemoved());
+            if (plugin.getShopUtil().removeShop(shopName)) {
+                plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminShopRemoved(), null);
             } else {
-                Format.sendMessage(sender, Config.get().getAdminShopNotFound());
+                plugin.getMessageService().sendErrorMessage(sender, plugin.getMessageSettings().getAdminShopNotFound(), null);
             }
         } finally {
             Database.releaseWriteLock();
@@ -49,7 +49,7 @@ public class TradeFlowRemoveShopCommand extends BaseCommand {
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length == 1) {
-            return Arrays.stream(ShopUtil.getShopNames(plugin.getDatabase()))
+            return Arrays.stream(plugin.getShopUtil().getShopNames())
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }

@@ -10,6 +10,7 @@ import org.bukkit.Material;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.StonecuttingRecipe;
 import com.github.lye.config.Config;
+import com.github.lye.config.settings.IPricingSettings;
 import com.github.lye.util.TradeFlowLogger;
 import com.github.lye.util.Format;
 
@@ -39,15 +40,20 @@ public class CraftingDependencyResolver {
     }
 
     private final Map<String, List<RecipeData>> dependencyGraph = new HashMap<>();
-    private final TradeFlowLogger logger = Format.getLog();
     private final java.util.Set<String> craftForwardWhitelist = new java.util.HashSet<>();
     private final Map<String, String> compressionInverseMap = new HashMap<>();
     private final Map<String, List<String>> inverseDependencyGraph = new HashMap<>();
     private final java.util.Set<String> stonecutterWhitelist = new java.util.HashSet<>();
     private final Database database;
+    private final ShopUtil shopUtil;
+    private final TradeFlowLogger logger;
+    private final IPricingSettings pricingSettings;
 
-    public CraftingDependencyResolver(Database database) {
+    public CraftingDependencyResolver(Database database, ShopUtil shopUtil, TradeFlowLogger logger, IPricingSettings pricingSettings) {
         this.database = database;
+        this.shopUtil = shopUtil;
+        this.logger = logger;
+        this.pricingSettings = pricingSettings;
         // Define common CRAFT_FORWARD compressions
         craftForwardWhitelist.add(Material.IRON_NUGGET.toString().toLowerCase() + "_" + Material.IRON_INGOT.toString().toLowerCase());
         craftForwardWhitelist.add(Material.GOLD_NUGGET.toString().toLowerCase() + "_" + Material.GOLD_INGOT.toString().toLowerCase());
@@ -215,10 +221,10 @@ public class CraftingDependencyResolver {
                 // We need to recalculate its price.
                 double newPrice = calculatePrice(craftedItem);
                 if (newPrice >= 0) { // Only update if price is valid
-                    Shop shop = ShopUtil.getShop(this.database, craftedItem, false);
+                    Shop shop = shopUtil.getShop(craftedItem, false);
                     if (shop != null) {
                         shop.setPrice(newPrice);
-                        ShopUtil.putShop(this.database, craftedItem, shop);
+                        shopUtil.putShop(craftedItem, shop);
                         // Recursively update the prices of items that depend on this item.
                         updateCraftedItemPrices(craftedItem, updatedItems);
                     }
@@ -232,10 +238,10 @@ public class CraftingDependencyResolver {
         for (String craftedItem : dependencyGraph.keySet()) {
             double newPrice = calculatePrice(craftedItem);
             if (newPrice >= 0) {
-                Shop shop = ShopUtil.getShop(this.database, craftedItem, false);
+                Shop shop = shopUtil.getShop(craftedItem, false);
                 if (shop != null) {
                     shop.setPrice(newPrice);
-                    ShopUtil.putShop(this.database, craftedItem, shop);
+                    shopUtil.putShop(craftedItem, shop);
                 }
             }
         }
@@ -267,7 +273,7 @@ public class CraftingDependencyResolver {
             String fuelName = entry.getKey();
             int smeltCount = entry.getValue();
 
-            Shop fuelShop = ShopUtil.getShop(this.database, fuelName, false);
+            Shop fuelShop = shopUtil.getShop(fuelName, false);
             if (fuelShop != null && fuelShop.getPrice() >= 0) {
                 double costPerItem = fuelShop.getPrice() / smeltCount;
                 if (costPerItem < minCost) {
@@ -286,13 +292,13 @@ public class CraftingDependencyResolver {
         }
 
         // --- New logic for deriving price from reversible conversions ---
-        if (Config.get().isTreatReversibleAsDerived() && compressionInverseMap.containsKey(itemName)) {
+        if (pricingSettings.isTreatReversibleAsDerived() && compressionInverseMap.containsKey(itemName)) {
             String compressedItemName = compressionInverseMap.get(itemName);
             double compressedPrice = calculatePrice(compressedItemName, recursionStack); // Recursively get price of compressed item
 
             if (compressedPrice >= 0) {
                 // Assuming 9:1 compression/decompression ratio
-                double derivedPrice = (compressedPrice / 9.0) * (1.0 - Config.get().getAntiArbitrageFee());
+                double derivedPrice = (compressedPrice / 9.0) * (1.0 - pricingSettings.getAntiArbitrageFee());
                 logger.fine("Derived price for " + itemName + " from " + compressedItemName + ": " + derivedPrice);
                 return derivedPrice;
             }
@@ -302,7 +308,7 @@ public class CraftingDependencyResolver {
         List<RecipeData> recipeDataList = dependencyGraph.get(itemName);
         if (recipeDataList == null) {
             // This is a raw material, its price is not calculated.
-            Shop shop = ShopUtil.getShop(this.database, itemName, true);
+            Shop shop = shopUtil.getShop(itemName, true);
             return shop != null ? shop.getPrice() : -1; // Return -1 if shop not found
         }
 

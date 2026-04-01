@@ -7,11 +7,9 @@ import org.bukkit.command.TabCompleter;
 import com.github.lye.TradeFlow;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class CommandManager implements CommandExecutor, TabCompleter {
     private final TradeFlow plugin;
@@ -19,29 +17,62 @@ public class CommandManager implements CommandExecutor, TabCompleter {
 
     public CommandManager(TradeFlow plugin) {
         this.plugin = plugin;
+        registerCommand(new com.github.lye.commands.RumorCommand(plugin));
+        registerCommand(new com.github.lye.commands.BlackMarketCommand(plugin));
     }
 
     public void registerCommand(ICommand command) {
         commands.put(command.getName().toLowerCase(), command);
     }
 
+    public Map<String, ICommand> getCommands() {
+        return commands;
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        String commandName = cmd.getName().toLowerCase(); // "tradeflow" or "tfadmin"
 
-        ICommand command = commands.get(cmd.getName().toLowerCase());
-        if (command != null) {
-            return command.execute(sender, args);
+        // First, try to find a matching main command in our registry
+        ICommand mainCommand = commands.get(commandName);
+        if (mainCommand != null) {
+            return mainCommand.execute(sender, args);
         }
-        sender.sendMessage("[DEBUG] Command not found in CommandManager: " + cmd.getName());
+
+        // Handle subcommands for direct calls
+        if (args.length > 0) {
+            ICommand subCommand = commands.get(args[0].toLowerCase());
+            if (subCommand != null) {
+                return subCommand.execute(sender, args);
+            }
+        }
+
+        // No matching subcommand - show help or default
+        ICommand defaultCommand = commands.get("help");
+        if (defaultCommand != null) {
+            return defaultCommand.execute(sender, args);
+        }
+
+        // Fallback: send to TradeFlowCommand for help display
+        ICommand tfCommand = commands.get("tradeflow");
+        if (tfCommand != null) {
+            return tfCommand.execute(sender, args);
+        }
+
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
-        ICommand command = commands.get(cmd.getName().toLowerCase());
-        if (command != null) {
-            return command.onTabComplete(sender, args);
+        String commandName = cmd.getName().toLowerCase();
+
+        // Get the main command being executed
+        ICommand mainCommand = commands.get(commandName);
+        if (mainCommand != null) {
+            // Delegate to the main command's tab completer (which handles its subcommands)
+            return mainCommand.onTabComplete(sender, args);
         }
+
         return new ArrayList<>();
     }
 }

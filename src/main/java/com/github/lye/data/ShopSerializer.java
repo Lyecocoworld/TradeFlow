@@ -4,17 +4,40 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Objects;
 import org.mapdb.DataInput2;
 import org.mapdb.DataOutput2;
 import org.mapdb.Serializer;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.config.settings.IPricingSettings;
+import com.github.lye.util.TradeFlowLogger;
 
 /**
  * The serializer for the Shop class.
  */
 public class ShopSerializer implements Serializer<Shop> {
 
+    private static final int MAGIC_V1_WITH_NAME = 0x7F01FADE; // Unique marker for entries that include name
+
+    private final IPricingSettings pricingSettings;
+    private final IPluginSettings pluginSettings;
+    private final TradeFlowLogger logger;
+
+    public ShopSerializer(IPricingSettings pricingSettings,
+                          IPluginSettings pluginSettings,
+                          TradeFlowLogger logger) {
+        this.pricingSettings = Objects.requireNonNull(pricingSettings, "pricingSettings");
+        this.pluginSettings = Objects.requireNonNull(pluginSettings, "pluginSettings");
+        this.logger = Objects.requireNonNull(logger, "logger");
+    }
+
     @Override
     public void serialize(DataOutput2 out, Shop value) throws IOException {
+        // New format header + name for durability
+        String nm = value.getName();
+        if (nm == null) nm = "";
+        out.writeInt(MAGIC_V1_WITH_NAME);
+        out.writeUTF(nm);
         out.writeInt(value.getSize());
 
         for (int i = 0; i < value.getSize(); i++) {
@@ -69,7 +92,16 @@ public class ShopSerializer implements Serializer<Shop> {
     public Shop deserialize(DataInput2 input, int available) throws IOException {
         Shop.ShopBuilder builder = new Shop.ShopBuilder();
 
-        int size = input.readInt();
+        int first = input.readInt();
+        String name = null;
+        int size;
+        if (first == MAGIC_V1_WITH_NAME) {
+            name = input.readUTF();
+            size = input.readInt();
+        } else {
+            // Backward compatibility with legacy entries: first int was size
+            size = first;
+        }
         if (size < 0 || size > 1_000_000) { // Sanity check
             throw new IOException("Invalid history size: " + size);
         }
@@ -161,6 +193,15 @@ public class ShopSerializer implements Serializer<Shop> {
             recentSells.put(UUID.deserialize(input, available), input.readInt());
         }
         builder.recentSells(recentSells);
+
+        if (name != null && !name.isBlank()) {
+            builder.name(name);
+        }
+
+        // Ensure all deserialized Shop instances have non-null settings/logger
+        builder.pricingSettings(this.pricingSettings);
+        builder.pluginSettings(this.pluginSettings);
+        builder.logger(this.logger);
 
         return builder.build();
     }

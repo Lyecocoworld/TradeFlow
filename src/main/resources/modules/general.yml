@@ -1,0 +1,128 @@
+# --- TradeFlow : Module Général & Système (Architecture Distribuée) ---
+
+# --- Stockage des Données (MySQL de Haute Disponibilité) ---
+database:
+  type: "mysql"
+  host: "127.0.0.1"
+  port: 3306
+  name: "tradeflow"
+  user: "user"
+  password: "password"
+  
+  ssl:
+    enabled: false
+    require: false
+    verify-server-certificate: false
+    
+  # Pooling (HikariCP tuning pour 500+ joueurs)
+  pool:
+    size: 50
+    min-idle: 10
+    connection-timeout: 10000
+    idle-timeout: 300000
+    max-lifetime: 900000
+  
+  # Limite d'historique (évite l'explosion de la RAM)
+  max-transaction-history: 1000
+  
+  # Réplication MySQL (Lecture sur esclaves pour soulager le maître)
+  replication:
+    enabled: false
+    read-replicas:
+      - "mysql-replica1.example.com:3306"
+    load-balancing: "least_connections"
+    replica-lag-threshold: 3000
+  
+  # Circuit Breaker (Isolation automatique en cas de panne BDD)
+  circuit-breaker:
+    enabled: true
+    failure-threshold: 5
+    timeout: 60000
+    half-open-requests: 3
+
+# --- Synchronisation Temps Réel (Redis Cache & Pub/Sub) ---
+redis:
+  enabled: false
+  mode: "single" # single, sentinel, or cluster
+  server-id: "tradeflow-1"
+
+  single:
+    host: "localhost"
+    port: 6379
+
+  auth:
+    username: "admin"
+    password: "password"
+    database: 0
+  
+  connection:
+    timeout: 3000
+    retry-attempts: 3
+    retry-interval: 1500
+    subscription-connection-pool-size: 50
+    connection-pool-size: 64
+    ping-interval: 30000
+  
+  channels:
+    global: "tf:global"
+    prices: "tf:prices"
+    inventory: "tf:inventory"
+    heartbeat: "tf:heartbeat"
+  
+  heartbeat:
+    enabled: true
+    interval: 30
+    timeout: 60
+
+# --- Système d'Optimisation des Écritures (Batch Write) ---
+batch-write:
+  enabled: true
+  batch-size: 100       
+  flush-interval: 2000  
+  max-queue-size: 10000 
+  async-execution: true
+
+# --- Cache Multi-Niveau (Caffeine + Redis) ---
+cache:
+  query-cache:
+    enabled: true
+    local-size: 5000    
+    ttl-seconds: 120    
+  
+# --- Monitoring & Metrics ---
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    port: 9090
+  metrics:
+    query-performance: true
+    cache-statistics: true
+    memory-usage: true
+
+# --- Interface Graphique (GUI) ---
+gui:
+  # Choix du thème : "default" | "violet"
+  # Si "violet", les messages et les couleurs seront automatiquement adaptés (Rose/Violet/Blanc).
+  theme: "default"
+
+  # Nom affiché du market dans les titres GUI
+  market-display-name: "TradeFlow"
+
+  background-material: 'BLACK_STAINED_GLASS_PANE'
+  locked-style: "ghost"         # "pane" (caché) | "ghost" (grisé)
+  locked-tips:
+    metals_hint: true
+
+# --- Paramètres Système ---
+system:
+  server-name: "survival-1"
+  log-level: 'INFO'
+  locale: 'en_US'
+  online-mode: true
+  enable-sell-limits: false
+
+# --- GMQ (Global Market Quotation) ---
+gmq:
+  restock-time: "SUNDAY 18:00"   # Jour et heure du restock hebdomadaire (format: "DAY HH:mm")
+

@@ -13,6 +13,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.messages.MessageManager; // Import MessageManager
 
 /**
@@ -21,19 +22,46 @@ import com.github.lye.messages.MessageManager; // Import MessageManager
 @UtilityClass
 public class Format {
 
-    // The currency format.
-    private static NumberFormat currency;
-    // The percentage format.
-    private static NumberFormat percent;
-    // The decimal format.
-    private static NumberFormat decimal;
-    // The number format.
-    private static NumberFormat number;
-    // The date format
-    private static DateFormat date;
-    // The logger
-    @Getter
+    private static volatile Locale cachedLocale;
+
+    private static final ThreadLocal<NumberFormat> currency = ThreadLocal.withInitial(() ->
+            NumberFormat.getCurrencyInstance(cachedLocale != null ? cachedLocale : Locale.US));
+    private static final ThreadLocal<NumberFormat> percent = ThreadLocal.withInitial(() -> {
+        NumberFormat fmt = NumberFormat.getPercentInstance(cachedLocale != null ? cachedLocale : Locale.US);
+        fmt.setMaximumFractionDigits(2);
+        return fmt;
+    });
+    private static final ThreadLocal<NumberFormat> decimal = ThreadLocal.withInitial(() -> {
+        NumberFormat fmt = NumberFormat.getNumberInstance(cachedLocale != null ? cachedLocale : Locale.US);
+        fmt.setMaximumFractionDigits(2);
+        return fmt;
+    });
+    private static final ThreadLocal<NumberFormat> number = ThreadLocal.withInitial(() ->
+            NumberFormat.getNumberInstance(cachedLocale != null ? cachedLocale : Locale.US));
+    private static final ThreadLocal<DateFormat> date = ThreadLocal.withInitial(() ->
+            DateFormat.getDateInstance(DateFormat.SHORT, cachedLocale != null ? cachedLocale : Locale.US));
     private static TradeFlowLogger log;
+    private static IMessageSettings messageSettings;
+
+    public static TradeFlowLogger getLog() {
+        return log;
+    }
+
+    /**
+     * Sets the logger instance.
+     * @param logger the logger to set
+     */
+    public static void setLog(TradeFlowLogger logger) {
+        Format.log = logger;
+    }
+
+    /**
+     * Sets the message settings instance for message resolution.
+     * @param settings the message settings
+     */
+    public static void setMessageSettings(IMessageSettings settings) {
+        Format.messageSettings = settings;
+    }
 
     /**
      * Loads the locale and formats.
@@ -41,24 +69,15 @@ public class Format {
      */
     public static void loadLocale(@NotNull String localeString) {
         String[] localeSplit = localeString.split("_");
-        // The locale to use.
         Locale locale = new Locale(localeSplit[0], localeSplit[1]);
-        currency = NumberFormat.getCurrencyInstance(locale);
-        percent = NumberFormat.getPercentInstance(locale);
-        percent.setMaximumFractionDigits(2);
-        decimal = NumberFormat.getNumberInstance(locale);
-        decimal.setMaximumFractionDigits(2);
-        number = NumberFormat.getNumberInstance(locale);
-        date = DateFormat.getDateInstance(DateFormat.SHORT, locale);
+        cachedLocale = locale;
     }
 
     /**
      * Loads the logger.
      */
-    public static void loadLogger(@NotNull Level level) {
-        log = new TradeFlowLogger(TradeFlow.getInstance());
-        log.setLevel(level);
-        log.info("Logger loaded with level " + log.getLevel().toString());
+    public static void init(TradeFlowLogger logger) {
+        log = logger;
     }
 
     /**
@@ -67,7 +86,7 @@ public class Format {
      * @return the formatted currency string
      */
     public static String currency(double amount) {
-        return currency.format(amount);
+        return currency.get().format(amount);
     }
 
     /**
@@ -76,7 +95,7 @@ public class Format {
      * @return the formatted percentage string
      */
     public static String percent(double amount) {
-        return percent.format(amount);
+        return percent.get().format(amount);
     }
 
     /**
@@ -85,7 +104,7 @@ public class Format {
      * @return the formatted decimal string
      */
     public static String decimal(double amount) {
-        return decimal.format(amount);
+        return decimal.get().format(amount);
     }
 
     /**
@@ -94,7 +113,7 @@ public class Format {
      * @return the formatted number string
      */
     public static String number(double amount) {
-        return number.format(amount);
+        return number.get().format(amount);
     }
 
     /**
@@ -103,7 +122,7 @@ public class Format {
      * @return the formatted date string
      */
     public static String date(long time) {
-        return date.format(time);
+        return date.get().format(time);
     }
 
     /**
@@ -114,7 +133,7 @@ public class Format {
      */
     public static void sendMessage(@NotNull Player player, @NotNull String messageKey,
         TagResolver... resolvers) { // Changed to varargs
-        MessageManager.sendMessage(player, messageKey, resolvers);
+        MessageManager.sendMessage(messageSettings, player, messageKey, resolvers);
     }
 
     /**
@@ -123,7 +142,7 @@ public class Format {
      * @param messageKey the message key to send
      */
     public static void sendMessage(@NotNull Player player, @NotNull String messageKey) {
-        MessageManager.sendMessage(player, messageKey);
+        MessageManager.sendMessage(messageSettings, player, messageKey);
     }
 
     /**
@@ -135,7 +154,7 @@ public class Format {
      */
     public static void sendMessage(@NotNull CommandSender sender, @NotNull String messageKey,
             TagResolver... resolvers) { // Changed to varargs
-        MessageManager.sendMessage(sender, messageKey, resolvers);
+        MessageManager.sendMessage(messageSettings, sender, messageKey, resolvers);
     }
 
     /**
@@ -144,26 +163,81 @@ public class Format {
      * @param messageKey The message key to send
      */
     public static void sendMessage(@NotNull CommandSender sender, @NotNull String messageKey) {
-        MessageManager.sendMessage(sender, messageKey);
+        MessageManager.sendMessage(messageSettings, sender, messageKey);
     }
 
     /**
      * Get the component of a message using the MiniMessage API and a tag resolver.
      */
     public static Component getComponent(@NotNull String messageKey, TagResolver... resolvers) { // Changed to varargs
-        return MessageManager.getComponent(messageKey, resolvers);
+        return MessageManager.getComponent(messageSettings, messageKey, resolvers);
     }
 
     /**
      * Get the component of a message using the MiniMessage API.
      */
     public static Component getComponent(@NotNull String messageKey) {
-        return MessageManager.getComponent(messageKey);
+        return MessageManager.getComponent(messageSettings, messageKey);
     }
 
     public static void sendRawMessage(@NotNull CommandSender sender, @NotNull String rawMessage, TagResolver... resolvers) {
         sender.sendMessage(MiniMessage.miniMessage().deserialize(rawMessage, resolvers));
     }
 
+    public static String prettifyName(String rawName) {
+        if (rawName == null || rawName.isBlank()) {
+            return "Unknown Item";
+        }
+        String[] parts = rawName.replace('_', ' ').toLowerCase().split(" ");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (part.length() > 0) {
+                sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
 
+    /**
+     * Format a time duration in milliseconds to a string like "12m 30s".
+     * @param millis Duration in milliseconds
+     * @return Formatted string
+     */
+    public static String formatDuration(long millis) {
+        long seconds = millis / 1000;
+        long minutes = seconds / 60;
+        seconds = seconds % 60;
+        return String.format("%dm %ds", minutes, seconds);
+    }
+
+    /**
+     * Format a number with suffixes (k, M, B) or return "∞" if -1.
+     * @param value The number to format
+     * @return The formatted string
+     */
+    public static String compactNumber(double value) {
+        if (value == -1) return "∞";
+        
+        // Handle negative numbers just in case, though usually limits are positive
+        String sign = value < 0 ? "-" : "";
+        double abs = Math.abs(value);
+
+        if (abs < 1000) return sign + decimal.get().format(abs);
+        
+        int exp = (int) (Math.log(abs) / Math.log(1000));
+        String suffix = "";
+        switch (exp) {
+            case 1: suffix = "k"; break;
+            case 2: suffix = "M"; break;
+            case 3: suffix = "Md"; break; // French Billion
+            case 4: suffix = "T"; break;
+            default: suffix = "E" + exp;
+        }
+        
+        return sign + String.format(Locale.US, "%.1f%s", abs / Math.pow(1000, exp), suffix);
+    }
+
+    public static String compactNumber(int value) {
+        return compactNumber((double) value);
+    }
 }

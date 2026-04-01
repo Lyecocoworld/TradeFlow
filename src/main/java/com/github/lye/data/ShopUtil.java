@@ -1,6 +1,5 @@
 package com.github.lye.data;
 
-import lombok.experimental.UtilityClass;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.Arrays;
@@ -8,18 +7,29 @@ import com.github.lye.util.Format;
 
 import org.bukkit.OfflinePlayer;
 import com.github.lye.config.Config;
+import com.github.lye.config.settings.IPricingSettings;
+import com.github.lye.config.settings.IPluginSettings;
 
 /**
  * A utility class for interacting with shops and the database.
  */
-@UtilityClass
 public class ShopUtil {
 
-    public static Shop getShop(Database database, String item, boolean warn) {
+    private final Database database;
+    private final IPricingSettings pricingSettings;
+    private final IPluginSettings pluginSettings;
+
+    public ShopUtil(Database database, IPricingSettings pricingSettings, IPluginSettings pluginSettings) {
+        this.database = database;
+        this.pricingSettings = pricingSettings;
+        this.pluginSettings = pluginSettings;
+    }
+
+    public Shop getShop(String item, boolean warn) {
         return database.getShop(item, warn);
     }
 
-    public static void putShop(Database database, String key, Shop shop) {
+    public void putShop(String key, Shop shop) {
         database.putShop(key, shop);
     }
 
@@ -28,9 +38,9 @@ public class ShopUtil {
      *
      * @return The list of possible shop names.
      */
-    public static String[] getShopNames(Database database) {
+    public String[] getShopNames() {
         String[] shopNames = database.getShopNames();
-        Format.getLog().info("[DEBUG] ShopUtil.getShopNames() found " + shopNames.length + " shops.");
+        Format.getLog().fine("ShopUtil.getShopNames() found " + shopNames.length + " shops.");
         return shopNames;
     }
 
@@ -40,8 +50,8 @@ public class ShopUtil {
      * @param item The item to check.
      * @return Whether the item is in the shop.
      */
-    public static boolean isInShop(Database database, String item) {
-        return Arrays.asList(getSectionNames(database)).contains(item.toLowerCase());
+    public boolean isInShop(String item) {
+        return Arrays.asList(getSectionNames()).contains(item.toLowerCase());
     }
 
     /**
@@ -49,12 +59,19 @@ public class ShopUtil {
      *
      * @return The list of possible section names.
      */
-    public static String[] getSectionNames(Database database) {
+    public String[] getSectionNames() {
         return database.sections.keySet().toArray(new String[0]);
     }
 
-    public static Shop createShopFromConfig(String shopName, ConfigurationSection shopConfig, String sectionName, boolean isEnchantment) {
-        return Shop.fromConfig(shopName, shopConfig, sectionName, isEnchantment);
+    public Shop createShopFromConfig(String shopName, ConfigurationSection shopConfig, String sectionName, boolean isEnchantment) {
+        return Shop.fromConfig(
+                shopName,
+                shopConfig,
+                sectionName,
+                isEnchantment,
+                pricingSettings,
+                pluginSettings,
+                Format.getLog());
     }
 
     /**
@@ -63,12 +80,12 @@ public class ShopUtil {
      * @param name The name of the section.
      * @return The section.
      */
-    public static Section getSection(Database database, String name) {
+    public Section getSection(String name) {
         if (database.sections.containsKey(name)) {
             return database.sections.get(name);
         }
 
-        for (String sectionName : getSectionNames(database)) {
+        for (String sectionName : getSectionNames()) {
             if (sectionName.equalsIgnoreCase(name)) {
                 return database.sections.get(sectionName);
             }
@@ -77,25 +94,24 @@ public class ShopUtil {
         return null;
     }
 
-    public static int getBuysLeft(Database database, OfflinePlayer player, String item) {
+    public int getBuysLeft(OfflinePlayer player, String item) {
         return database.getPurchasesLeft(item, player.getUniqueId(), true);
     }
 
-    public static int getSellsLeft(Database database, OfflinePlayer player, String item) {
+    public int getSellsLeft(OfflinePlayer player, String item) {
         return database.getPurchasesLeft(item, player.getUniqueId(), false);
     }
 
-    public static void addTransaction(Database database, Transaction transaction) {
+    public void addTransaction(Transaction transaction) {
         database.transactions.put(java.util.UUID.randomUUID().toString(), transaction);
     }
 
-    public static boolean removeShop(String item) {
-        return Database.get().removeShop(item);
+    public boolean removeShop(String item) {
+        return database.removeShop(item);
     }
 
-    public static void reload() {
-        Config.init();
-        Database.get().reload();
+    public void reload() {
+        database.reload(this);
     }
 
 }

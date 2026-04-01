@@ -4,12 +4,12 @@ import org.mapdb.DB;
 import org.mapdb.HTreeMap;
 import org.mapdb.Serializer;
 import org.mapdb.serializer.SerializerCompressionWrapper;
-import com.github.lye.TradeFlow;
-import com.github.lye.config.Config;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopSerializer;
 import com.github.lye.util.TradeFlowLogger;
 import com.github.lye.util.Format;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.config.settings.IPricingSettings;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -18,12 +18,19 @@ public class MapDBShopRepository implements ShopRepository {
 
     private final HTreeMap<String, Shop> shops;
     private final TradeFlowLogger logger;
+    private final IPluginSettings pluginSettings;
+    private final IPricingSettings pricingSettings;
 
-    public MapDBShopRepository(DB db) {
-        this.logger = Format.getLog();
+    public MapDBShopRepository(DB db,
+                               TradeFlowLogger logger,
+                               IPluginSettings pluginSettings,
+                               IPricingSettings pricingSettings) {
+        this.logger = logger;
+        this.pluginSettings = pluginSettings;
+        this.pricingSettings = pricingSettings;
         this.shops = db.hashMap("shops")
                 .keySerializer(new SerializerCompressionWrapper<String>(Serializer.STRING))
-                .valueSerializer(new ShopSerializer())
+                .valueSerializer(new ShopSerializer(this.pricingSettings, this.pluginSettings, this.logger))
                 .createOrOpen();
         logger.fine("Loaded shops map.");
     }

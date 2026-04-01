@@ -1,0 +1,208 @@
+# Fichier de messages pour TradeFlow, style minimaliste et cohérent.
+
+# --- Messages Généraux ---
+not-in-shop: "<red>Cet item n'est pas dans le magasin.</red>"
+not-enough-money: "<red>Vous n'avez pas assez d'argent. Il vous faut <dark_purple><total></dark_purple>.</red>"
+not-enough-space: "<red>Vous n'avez pas assez de place dans votre inventaire.</red>"
+not-enough-items: "<red>Vous n'avez pas <white><amount>x <item></white> à vendre.</red>"
+not-unlocked: "<light_purple>Cet item est verrouillé. Mode de déverrouillage : <white><collect-first-setting></white>.</light_purple>"
+run-out-of-buys: "<light_purple>Vous avez atteint votre limite d'achats pour <white><item></white>.</light_purple>"
+run-out-of-sells: "<light_purple>Vous avez atteint votre limite de ventes pour <white><item></white>.</light_purple>"
+shop-purchase: "<green>Acheté <white>x<amount></white> de <white><item></white> pour <dark_purple><total></dark_purple>.</green>"
+shop-sell: "<green>Vendu <white>x<amount></white> de <white><item></white> pour <dark_purple><total></dark_purple>.</green>"
+hold-item-in-hand: "<light_purple>Tenez l'item que vous souhaitez enchanter dans votre main !</light_purple>"
+enchantment-error: "<red>Impossible d'appliquer cet enchantement sur <white><item></white>.</red>"
+permission-denied: "<red>Vous n'avez pas la permission de faire ceci : <action>.</red>"
+players-only: "<red>Cette commande ne peut être exécutée que par un joueur.</red>"
+player-not-found: "<red>Le joueur <white><player></white> n'a pas été trouvé.</red>"
+
+# --- Lore des Items ---
+shop-lore:
+  - ""
+  - "<gray>Achat: <dark_purple><price>"
+  - "<gray>Vente: <dark_purple><sell-price>"
+  - ""
+  - "<gray>Achats restants: <white><buys-left>/<max-buys>"
+  - "<gray>Ventes restantes: <white><sells-left>/<max-sells>"
+  - "<gray>Variation: <white><change>"
+
+purchase-buy-lore:
+  - "<gray>Prix unitaire: <dark_purple><price>"
+  - "<gray>Prix total: <dark_purple><total-price>"
+  - ""
+  - "<gray>Achats restants: <white><buys-left>"
+
+purchase-sell-lore:
+  - "<gray>Prix de vente unitaire: <dark_purple><sell-price>"
+  - "<gray>Prix de vente total: <dark_purple><total-sell-price>"
+  - ""
+  - "<gray>Ventes restantes: <white><sells-left>"
+
+# J'ai ajouté purchase-enchant-lore ici pour la cohérence
+purchase-enchant-lore:
+  - "<gray>Prix unitaire: <dark_purple><price>"
+  - "<gray>Prix total: <dark_purple><total-price>"
+  - ""
+  - "<gray>Niveau: <white><level>"
+  - "<gray>Achats restants: <white><buys-left>"
+
+lore-status-locked: "<red><b>Verrouillé"
+lore-how-to-unlock-player: "<gray>Déverrouillez cet item en le trouvant dans le monde."
+lore-how-to-unlock-server: "<gray>Cet item sera déverrouillé pour tout le serveur une fois qu'un joueur l'aura trouvé."
+
+# --- Trends & Hot Items ---
+trend-hot-item: "<dark_purple>🔥 <bold>HOT ITEM</bold> (Forte demande)</dark_purple>"
+trend-market-crash: "<dark_red>📉 <bold>MARKET CRASH</bold> (Vente panique)</dark_red>"
+trend-section-up: "<green>📈 <bold>HAUSSE</bold> (+<percent>%)</green>"
+trend-section-down: "<red>📉 <bold>BAISSE</bold> (<percent>%)</red>"
+
+# --- Rumors ---
+rumor-item-name: "<dark_purple>Lettre Cachetée</dark_purple>"
+rumor-item-lore:
+  - "<gray>Clic-droit pour briser le sceau..."
+  - "<dark_gray>Contient des informations sensibles."
+rumor-revealed-name: "<light_purple>Rumeur Économique</light_purple>"
+rumor-revealed-lore:
+  - "<gray>Mes informateurs me disent que :"
+  - "<white><event_hint></white>"
+  - "<gray>Impact estimé : <white><time> min</white>"
+rumor-no-event: "<gray>Le marché semble calme... pour le moment."
+rumor-purchased: "<green>Vous avez acheté une rumeur pour <dark_purple><price></dark_purple>.</green>"
+rumor-not-enough-money: "<red>Une rumeur coûte <dark_purple><price></dark_purple>. Revenez quand vous serez riche.</red>"
+
+# --- Autosell ---
+autosell-profit: "<gray>Vos items ont été vendus pour <green><total></green>.</gray>"
+autosell-no-enchanted: "<light_purple>Vous ne pouvez pas vendre automatiquement des items enchantés.</light_purple>"
+autosell-lore:
+  - "<gray>Vente automatique: <white><b><autosell-setting>"
+autotrade-invalid-shop-name: "<red>Nom de magasin invalide pour l'autotrade.</red>"
+autotrade-disabled: "<green>Autotrade pour <white><shopName></white> désactivé.</green>"
+autotrade-enabled: "<green>Autotrade pour <white><shopName></white> activé.</green>"
+autotrade-toggled: "<green>Autotrade pour <white><shopName></white> basculé sur <white><status></white>.</green>"
+
+# --- Prêts (Loans) ---
+loan-usage: "<gray>Usage: /loan <amount|pay></gray>"
+loan-paid-back: "<green>Vous avez remboursé votre prêt de <dark_purple><value></dark_purple>.</green>"
+loan-not-enough-money-payback: "<red>Vous n'avez pas assez d'argent pour rembourser votre prêt.</red>"
+loan-invalid-amount: "<red>Montant invalide.</red>"
+loan-not-enough-money-loan: "<red>Vous n'avez pas assez d'argent pour prendre ce prêt.</red>"
+loan-info: "<gray>Vous avez <dark_purple><total></dark_purple> de prêts en cours.</gray>"
+loan-limit-reached: "<red>Vous avez atteint le nombre maximum de prêts actifs (<white><limit></white>).</red>"
+loan-taken-success: "<green>Vous avez contracté un prêt de <dark_purple><amount></dark_purple>.</green>"
+
+# --- Titres et Éléments de GUI ---
+gui-title-shop: "<gray><b>Magasin"
+gui-title-sell-panel: "<gray><b>Panneau de Vente"
+gui-back-to-menu: "<gray>Retour au menu"
+gui-back-to-section: "<dark_purple><b>← Retour"
+gui-go-to-page: "<gray>Aller à la page <page>"
+background-pane-text: " "
+gui-quantity: "<gray>Quantité: <white><amount>"
+gui-level: "<gray>Niveau: <white><level>"
+gui-buy: "<green><b>Acheter"
+gui-sell-from-chest: "<red><b>Vendre (depuis un coffre)"
+gui-sell-panel-button: "<red><b>Vendre (panneau)"
+gui-confirm: "<green><b>Confirmer"
+gui-cancel: "<red><b>Annuler"
+
+# --- Navigation Bar ---
+navigation-back: "<dark_purple><b>← Retour"
+navigation-close: "<red><b>Fermer"
+navigation-forward: "<dark_purple><b>Suivant →"
+navigation-previous: "<dark_purple><b>← Précédent"
+navigation-page: "<dark_purple><b>Page <current>/<total>"
+navigation-main-menu: "<dark_purple><b>Menu Principal"
+
+# --- Main Shop GUI ---
+main-shop-utility-title: "<dark_purple><b>Outils"
+main-shop-utility-lore: "<gray>Licences, statistiques, profil"
+main-shop-click-to-open: "<light_purple>Clic pour ouvrir"
+
+main-shop-help-title: "<dark_purple><b>Aide & Tutoriel"
+main-shop-help-lore: "<gray>Guides, tutoriels, et documentation"
+
+main-shop-financial-title: "<dark_purple><b>Services Financiers"
+main-shop-financial-lore: "<gray>Prêts, emprunts, et services bancaires"
+
+main-shop-server-stats-title: "<dark_purple><b>Stats Serveur"
+main-shop-server-stats-lore-1: "<gray>Statistiques du serveur"
+main-shop-server-stats-lore-2: "<gray>Économie, transactions, etc."
+main-shop-click-to-view: "<light_purple>Clic pour voir"
+main-shop-admin-only: "<red>Accès refusé. Cette fonction est réservée aux administrateurs."
+
+main-shop-trend: "<gray>Tendance: <color><arrow> <percent>%</gray>"
+
+# --- Financial Services GUI ---
+financial-my-loans-title: "<dark_purple><b>Mes Prêts"
+financial-my-loans-lore: "<gray>Voir vos prêts en cours"
+financial-my-loans-action: "<light_purple>Clic pour voir"
+
+financial-take-loan-title: "<green><b>Prendre un Prêt"
+financial-take-loan-lore: "<gray>Emprunter de l'argent"
+financial-take-loan-action: "<light_purple>Clic pour emprunter"
+
+financial-repay-title: "<light_purple><b>Rembourser"
+financial-repay-lore: "<gray>Rembourser votre prêt"
+financial-repay-action: "<light_purple>Clic pour rembourser"
+
+# --- Purchase GUI ---
+purchase-showcase-quantity: "<gray>Quantité: <white><amount>"
+purchase-showcase-empty: " "
+
+purchase-amount-decrease-64: "<red><b>-64"
+purchase-amount-decrease-8: "<red><b>-8"
+purchase-amount-decrease-1: "<red><b>-1"
+purchase-amount-increase-1: "<green><b>+1"
+purchase-amount-increase-8: "<green><b>+8"
+purchase-amount-increase-64: "<green><b>+64"
+
+purchase-price-title: "<dark_purple><b>Prix Total: <total-price>"
+purchase-price-subtitle: "<gray><price> x <amount> = <dark_purple><total-price>"
+purchase-price-empty: " "
+
+# --- Commandes Admin ---
+admin-reloading-shops: "<light_purple>Rechargement des magasins...</light_purple>"
+admin-shops-reloaded: "<green>Magasins rechargés.</green>"
+admin-prices-exported: "<green>Prix exportés dans le fichier.</green>"
+admin-prices-imported: "<green>Prix importés depuis le fichier.</green>"
+admin-shop-removed: "<green>Magasin supprimé.</green>"
+admin-shop-not-found: "<red>Magasin non trouvé.</red>"
+admin-price-set: "<green>Prix de <white><shop></white> défini à <dark_purple><price></dark_purple>.</green>"
+admin-prices-updating: "<light_purple>Mise à jour des prix...</light_purple>"
+admin-prices-updated: "<green>Prix mis à jour !</green>"
+admin-invalid-price: "<red>Prix invalide.</red>"
+admin-perf-header: "<gray>--- <green>TradeFlow Perf</green> ---"
+admin-perf-line: "<gray><text></gray>"
+
+# --- Commandes et autres messages ---
+help:
+  - "<gray>--- <green>Commandes de TradeFlow</green> ---"
+  - " <light_purple>/shop <gray>- Ouvre le magasin."
+  - " <light_purple>/sell <gray>- Ouvre le panneau de vente rapide."
+  - " <light_purple>/autosell <gray>- Gère la vente automatique."
+  - " <light_purple>/loan <gray>- Gère vos prêts."
+
+admin-help:
+  - "<gray>--- <red>Commandes Admin</red> ---"
+  - " <light_purple>/shop reload <gray>- Recharge la configuration."
+  - " <light_purple>/shop update <gray>- Force la mise à jour des prix."
+  - " <light_purple>/shop import <gray>- Importe les prix."
+  - " <light_purple>/shop export <gray>- Exporte les prix."
+  - " <light_purple>/shop remove <shop> <gray>- Supprime un magasin."
+  - " <light_purple>/shop price <shop> <price> <gray>- Définit le prix d'un magasin."
+
+# --- Messages divers (style simplifié) ---
+invalid-shop-section: "<red>Section de magasin invalide.</red>"
+shop-gdp-lore:
+  - "<dark_purple><b>Infos sur l'Économie"
+  - "<gray>PIB par joueur: <white><gdp-per-capita>"
+  - "<gray>Dette par joueur: <white><debt-per-capita>"
+  - "<gray>Perte par joueur: <white><loss-per-capita>"
+  - "<gray>Balance par joueur: <white><balance-per-capita>"
+  - "<gray>Inflation: <white><inflation>"
+tutorial:
+  - "<light_purple>Faites <click:run_command:/shop>/shop</click> pour ouvrir le magasin."
+  - "<light_purple>Faites <click:run_command:/sell>/sell</click> pour vendre rapidement."
+  - "<light_purple>Contrôlez le marché ! Vos achats augmentent les prix."
+sell-success: "<green>Vous avez vendu vos items pour un total de <dark_purple><total></dark_purple>.</green>"
+market-opening-gui: "<green>Ouverture du marché...</green>"

@@ -1,0 +1,42 @@
+# --- TradeFlow : Module Features & Gameplay ---
+# Ce module gère les fonctionnalités annexes et l'expérience joueur.
+
+# Système de Prêts (Zeralys Core integration)
+loans:
+  enabled: false                # Active le système de prêt (En développement)
+  max-active-loans: 5           # Nombre max de prêts simultanés par joueur
+  interest-rate: 0.05           # Taux d'intérêt des prêts
+  interest-multiplier: 0.01     # Multiplicateur composé appliqué au taux d'intérêt
+
+# Système de Réputation (Modificateurs de prix invisibles)
+reputation:
+  default: 50.0                          # Réputation de départ
+  insider-threshold: 70.0                # Seuil pour devenir "Insider"
+  tier-modifiers:
+    penalty-high: 0.05                   # rep < 20: +5% sur les prix
+    penalty-low: 0.02                    # rep 20-40: +2% sur les prix
+    insider-bonus: 0.03                  # rep 60-80: -3% sur les prix
+    veteran-bonus: 0.05                  # rep >= 90: -5% sur les prix
+  trade-deltas:
+    sell-scarcity-bonus: 2.0             # Vendre pendant une pénurie (stock faible)
+    sell-surplus-penalty: -1.0           # Vendre pendant un excédent
+    buy-scarcity-penalty: -2.0           # Acheter pendant une pénurie
+    buy-surplus-bonus: 1.0               # Acheter pendant un excédent
+    sell-tick-bonus: 0.1                 # Petit bonus par vente normale
+    buy-tick-bonus: 0.05                 # Petit bonus par achat normal
+  thresholds:
+    scarcity-ratio: 0.25                 # Stock < idealStock * ratio = pénurie
+    surplus-price-ratio: 2.0             # Stock > idealStock * ratio = excédent (vente)
+    surplus-stock-ratio: 1.5             # Stock > idealStock * ratio = excédent (achat)
+
+# Système de Collection (Déblocage progressif)
+collection:
+  enabled: true                 # Active le 'Collect First' pour débloquer les items
+  default-mode: PLAYER          # NONE | PLAYER | SERVER
+  notify:
+    on-unlock: true             # Prévient le joueur quand il débloque un item
+    on-deny: true               # Prévient le joueur quand un item est bloqué
+
+# Expérience Utilisateur
+tutorial:
+  update-interval: 300          # Intervalle entre les messages de tutoriel (secondes)

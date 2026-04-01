@@ -56,7 +56,7 @@ public class FilePlayerCollectionData implements IPlayerCollectionData {
                 plugin.getLogger().log(Level.WARNING, "Invalid UUID found in player_collections.yml: " + uuidString, e);
             }
         }
-        plugin.getLogger().info("Loaded " + this.playerCollections.size() + " player collections from player_collections.yml.");
+        // plugin.getLogger().info("Loaded " + this.playerCollections.size() + " player collections from player_collections.yml.");
         return this.playerCollections;
     }
 
@@ -83,5 +83,23 @@ public class FilePlayerCollectionData implements IPlayerCollectionData {
 
     public boolean hasPlayerCollected(UUID playerUUID, String itemKey) {
         return playerCollections.containsKey(playerUUID) && playerCollections.get(playerUUID).contains(itemKey);
+    }
+
+    @Override
+    public void resetPlayerCollection(UUID playerUUID, String itemKey) {
+        if (playerCollections.containsKey(playerUUID)) {
+            if (itemKey == null) {
+                playerCollections.remove(playerUUID);
+            } else {
+                Set<String> items = playerCollections.get(playerUUID);
+                if (items != null) {
+                    items.remove(itemKey);
+                    if (items.isEmpty()) {
+                        playerCollections.remove(playerUUID);
+                    }
+                }
+            }
+            saveData();
+        }
     }
 }

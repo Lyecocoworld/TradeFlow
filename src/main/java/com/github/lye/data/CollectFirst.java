@@ -10,8 +10,12 @@ public class CollectFirst implements Serializable {
     private static final long serialVersionUID = 4793403925265988249L;
 
     // The CollectFirst setting
-    @Getter
     protected final CollectFirstSetting setting;
+
+    // Explicit getter to avoid relying on Lombok during compilation
+    public CollectFirstSetting getSetting() {
+        return this.setting;
+    }
     // Whether the item has been found anywhere on the server
     @Getter
     @Setter

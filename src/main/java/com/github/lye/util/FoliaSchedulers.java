@@ -45,4 +45,9 @@ public final class FoliaSchedulers {
     public static void runGlobalFixedRate(Plugin plugin, Runnable task, long delayTicks, long periodTicks) {
         Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, scheduledTask -> task.run(), delayTicks, periodTicks);
     }
+
+    // ------- Async (IO, Database, etc.) -------
+    public static void runAsync(Plugin plugin, Runnable task) {
+        Bukkit.getAsyncScheduler().runNow(plugin, scheduledTask -> task.run());
+    }
 }

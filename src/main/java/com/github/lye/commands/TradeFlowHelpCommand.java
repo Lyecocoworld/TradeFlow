@@ -1,13 +1,11 @@
 package com.github.lye.commands;
 
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import com.github.lye.TradeFlow;
+import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.gui.HelpGui;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import com.github.lye.TradeFlow;
-import com.github.lye.commands.core.BaseCommand;
-import com.github.lye.config.Config;
-import com.github.lye.util.Format;
 
 import java.util.List;
 
@@ -19,18 +17,20 @@ public class TradeFlowHelpCommand extends BaseCommand {
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String[] args) {
+        // Check permission via super
         if (super.execute(sender, args)) {
             return true;
         }
 
-        if (args.length > 0) {
-            Format.sendMessage(sender, getUsage());
+        if (sender instanceof Player) {
+            Player player = (Player) sender;
+            new HelpGui(plugin, player).open(player);
             return true;
         }
 
-        Config config = Config.get();
-        for (String message : config.getHelp()) {
-            Format.sendMessage(sender, message);
+        // Console fallback
+        for (String message : plugin.getMessageSettings().getHelp()) {
+            plugin.getMessageService().sendInfoMessage(sender, message, null);
         }
         return true;
     }

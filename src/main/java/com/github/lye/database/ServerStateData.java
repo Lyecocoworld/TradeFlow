@@ -1,6 +1,7 @@
 package com.github.lye.database;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.repository.ServerStateRepository;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,7 +9,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.logging.Level;
 
-public class ServerStateData {
+/**
+ * MySQL-backed implementation of {@link ServerStateRepository}.
+ */
+public class ServerStateData implements ServerStateRepository {
 
     private final TradeFlow plugin;
     private final MySQLConnector connector;
@@ -28,12 +32,13 @@ public class ServerStateData {
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.executeUpdate();
         } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not create autotune_server_state table!", e);
+            plugin.getLogger().log(Level.SEVERE, "Could not create tradeflow_server_state table!", e);
         }
     }
 
+    @Override
     public String getState(String key) {
-        String query = "SELECT state_value FROM autotune_server_state WHERE state_key = ?";
+        String query = "SELECT state_value FROM tradeflow_server_state WHERE state_key = ?";
         try (Connection conn = connector.getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, key);
@@ -48,8 +53,9 @@ public class ServerStateData {
         return null;
     }
 
+    @Override
     public void setState(String key, String value) {
-        String query = "INSERT INTO autotune_server_state (state_key, state_value) " +
+        String query = "INSERT INTO tradeflow_server_state (state_key, state_value) " +
                 "VALUES (?, ?) " +
                 "ON DUPLICATE KEY UPDATE state_value=?;";
 
@@ -64,5 +70,19 @@ public class ServerStateData {
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not set state for key: " + key, e);
         }
+    }
+
+    public double getMonetaryReserve() {
+        String val = getState("monetary_reserve");
+        if (val == null) return -1;
+        try {
+            return Double.parseDouble(val);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    public void saveMonetaryReserve(double amount) {
+        setState("monetary_reserve", String.valueOf(amount));
     }
 }

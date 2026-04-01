@@ -29,25 +29,23 @@ public class LoanPayCommand extends BaseCommand {
         }
 
         Player player = (Player) sender;
-        Config config = Config.get();
 
         Database.acquireWriteLock();
         try {
-            Database database = Database.get();
-            for (Map.Entry<String, Loan> entry : database.getLoans().entrySet()) {
+            for (Map.Entry<String, Loan> entry : plugin.getDatabase().getLoans().entrySet()) {
                 Loan loan = entry.getValue();
                 if (loan.getPlayer().equals(player.getUniqueId())) {
                     if (loan.isPaid()) {
                         continue;
                     }
 
-                    if (loan.payBack()) {
+                    if (loan.payBack(plugin.getEconomyDataUtil(), plugin.getPluginSettings(), plugin)) {
                         TagResolver resolver = Placeholder.parsed("value", Format.currency(loan.getValue()));
-                        Format.sendMessage(player, config.getLoanPaidBack(), resolver);
+                        plugin.getMessageService().sendInfoMessage(player, plugin.getMessageSettings().getLoanPaidBack(), resolver);
                     } else {
-                        Format.sendMessage(player, config.getLoanNotEnoughMoneyPayback());
+                        plugin.getMessageService().sendErrorMessage(player, plugin.getMessageSettings().getLoanNotEnoughMoneyPayback(), null);
                     }
-                    database.updateLoan(entry.getKey(), loan);
+                    plugin.getDatabase().updateLoan(entry.getKey(), loan);
                 }
             }
         } finally {

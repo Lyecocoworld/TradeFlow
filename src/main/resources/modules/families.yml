@@ -1,0 +1,90 @@
+# --- TradeFlow : Module Familles d'Items ---
+# Définit les groupes de variantes pour la synchronisation des prix.
+# Le moteur de prix utilise ces familles pour maintenir une cohérence logique.
+
+families:
+  # --- Minerais ---
+  iron_ingot:
+    variants: [raw_iron, raw_iron_block, iron_ingot, iron_nugget, iron_block]
+  gold_ingot:
+    variants: [raw_gold, raw_gold_block, gold_ingot, gold_nugget, gold_block]
+  copper_ingot:
+    variants: [raw_copper, raw_copper_block, copper_ingot, copper_block, cut_copper, cut_copper_stairs, cut_copper_slab]
+  diamond:
+    variants: [diamond, diamond_block]
+  emerald:
+    variants: [emerald, emerald_block]
+  netherite_ingot:
+    variants: [netherite_scrap, netherite_ingot, netherite_block]
+  lapis_lazuli:
+    variants: [lapis_lazuli, lapis_block]
+  redstone:
+    variants: [redstone, redstone_block]
+  quartz:
+    variants: [quartz, nether_quartz_ore, quartz_block, quartz_bricks, quartz_stairs, quartz_slab]
+  amethyst_shard:
+    variants: [amethyst_shard, amethyst_block, budding_amethyst, amethyst_cluster]
+
+  # --- Bois ---
+  oak_log:
+    variants: [oak_log, oak_wood, stripped_oak_log, oak_planks, oak_stairs, oak_slab, oak_fence, oak_door, oak_trapdoor, oak_sign, oak_button]
+  spruce_log:
+    variants: [spruce_log, spruce_wood, stripped_spruce_log, spruce_planks, spruce_stairs, spruce_slab, spruce_fence, spruce_door, spruce_trapdoor]
+  birch_log:
+    variants: [birch_log, birch_wood, stripped_birch_log, birch_planks, birch_stairs, birch_slab, birch_fence, birch_door, birch_trapdoor]
+  cherry_log:
+    variants: [cherry_log, cherry_wood, stripped_cherry_log, cherry_planks, cherry_stairs, cherry_slab, cherry_fence, cherry_door]
+  dark_oak_log:
+    variants: [dark_oak_log, dark_oak_wood, stripped_dark_oak_log, dark_oak_planks, dark_oak_stairs, dark_oak_slab, dark_oak_fence]
+  mangrove_log:
+    variants: [mangrove_log, mangrove_wood, stripped_mangrove_log, mangrove_planks, mangrove_stairs, mangrove_slab, mangrove_fence]
+  bamboo_block:
+    variants: [bamboo_block, stripped_bamboo_block, bamboo_planks, bamboo_stairs, bamboo_slab, bamboo_fence, bamboo_door]
+
+  # --- Pierres & Construction ---
+  stone:
+    variants: [stone, cobblestone, stone_bricks, cracked_stone_bricks, mossy_stone_bricks, mossy_cobblestone, stone_stairs, stone_slab]
+  deepslate:
+    variants: [deepslate, cobbled_deepslate, polished_deepslate, deepslate_bricks, deepslate_tiles, cracked_deepslate_bricks]
+  sandstone:
+    variants: [sandstone, cut_sandstone, chiseled_sandstone, smooth_sandstone, sandstone_stairs, sandstone_slab]
+  granite:
+    variants: [granite, polished_granite, granite_stairs, granite_slab]
+  diorite:
+    variants: [diorite, polished_diorite, diorite_stairs, diorite_slab]
+  andesite:
+    variants: [andesite, polished_andesite, andesite_stairs, andesite_slab]
+  mud_bricks:
+    variants: [mud, packed_mud, mud_bricks, mud_brick_stairs, mud_brick_slab]
+
+  # --- Teintures & Couleurs ---
+  white_dye:
+    variants: [white_dye, bone_meal, white_wool, white_concrete, white_terracotta, white_stained_glass]
+  red_dye:
+    variants: [red_dye, poppy, red_wool, red_concrete, red_terracotta, red_stained_glass]
+  blue_dye:
+    variants: [blue_dye, cornflower, blue_wool, blue_concrete, blue_terracotta, blue_stained_glass]
+  yellow_dye:
+    variants: [yellow_dye, dandelion, yellow_wool, yellow_concrete, yellow_terracotta, yellow_stained_glass]
+  green_dye:
+    variants: [green_dye, cactus, green_wool, green_concrete, green_terracotta, green_stained_glass]
+  black_dye:
+    variants: [black_dye, ink_sac, black_wool, black_concrete, black_terracotta, black_stained_glass]
+
+  # --- Agriculture & Nourriture ---
+  wheat:
+    variants: [wheat, wheat_seeds, hay_block, bread]
+  potato:
+    variants: [potato, baked_potato, poisonous_potato]
+  carrot:
+    variants: [carrot, golden_carrot]
+  sugar_cane:
+    variants: [sugar_cane, paper, sugar]
+  leather:
+    variants: [leather, rabbit_hide, book]
+  beef:
+    variants: [beef, cooked_beef]
+  porkchop:
+    variants: [porkchop, cooked_porkchop]
+  chicken:
+    variants: [chicken, cooked_chicken, feather, egg]

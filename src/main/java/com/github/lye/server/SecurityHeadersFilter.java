@@ -16,8 +16,16 @@ public class SecurityHeadersFilter implements Filter {
             throws IOException, ServletException {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         httpResponse.setHeader("X-Content-Type-Options", "nosniff");
-        httpResponse.setHeader("X-Frame-Options", "DENY");
-        httpResponse.setHeader("Content-Security-Policy", "default-src 'self'");
+        httpResponse.setHeader("X-Frame-Options", "SAMEORIGIN");
+        // CSP for SvelteKit - allows inline scripts/styles and data URIs
+        httpResponse.setHeader("Content-Security-Policy",
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; " +
+            "font-src 'self'; " +
+            "connect-src 'self'"
+        );
         chain.doFilter(request, response);
     }
 

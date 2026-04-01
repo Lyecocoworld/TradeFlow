@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import lombok.Getter;
-import com.github.lye.config.Config;
+import com.github.lye.config.settings.IPluginSettings;
 import com.github.lye.util.TradeFlowLogger;
 import com.github.lye.util.Format;
 
@@ -16,6 +16,8 @@ public class IpCheckEvent extends TradeFlowEvent {
 
     @Getter
     private static String ip;
+    private final TradeFlowLogger logger;
+    private final IPluginSettings pluginSettings;
 
     public static void setIp(String newIp) {
         ip = newIp;
@@ -26,13 +28,14 @@ public class IpCheckEvent extends TradeFlowEvent {
      *
      * @param isAsync Whether to run the check in a separate thread.
      */
-    public IpCheckEvent(boolean isAsync) {
+    public IpCheckEvent(boolean isAsync, TradeFlowLogger logger, IPluginSettings settings) {
         super(isAsync);
+        this.logger = logger;
+        this.pluginSettings = settings;
 
         try {
             getIpString();
         } catch (IOException e) {
-            TradeFlowLogger logger = Format.getLog();
             logger.severe("Could not get IP!");
             logger.config(e.toString());
             ip = "http://tradeflow.xyz";
@@ -52,7 +55,7 @@ public class IpCheckEvent extends TradeFlowEvent {
         URL whatIsmMyIp = new URL("https://checkip.amazonaws.com");
         BufferedReader in = new BufferedReader(new InputStreamReader(whatIsmMyIp.openStream()));
         String hostIp = in.readLine();
-        ip = "http://" + hostIp + ":" + Config.get().getPort() + "/trade.html";
+        ip = "http://" + hostIp + ":" + pluginSettings.getPort() + "/trade.html";
     }
 
 }

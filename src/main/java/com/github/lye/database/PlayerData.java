@@ -29,7 +29,8 @@ public class PlayerData {
     public void createTable() {
         String query = "CREATE TABLE IF NOT EXISTS player_data (" +
                 "player_uuid VARCHAR(36) NOT NULL PRIMARY KEY," +
-                "autosell_items TEXT" +
+                "autosell_items TEXT," +
+                "reputation DOUBLE DEFAULT 50.0" +
                 ");";
 
         try (Connection conn = connector.getConnection();
@@ -41,31 +42,69 @@ public class PlayerData {
     }
 
     public void saveAutosellSettings(UUID playerUuid, Set<String> items) {
-        String query = "INSERT INTO player_data (player_uuid, autosell_items) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE autosell_items=?;";
+        String itemsJson = gson.toJson(items, setType);
+        String sql = "INSERT INTO player_data (player_uuid, autosell_items) VALUES (?, ?) " +
+                     "ON DUPLICATE KEY UPDATE autosell_items=?;";
 
+        if (plugin.getBatchWriteOptimizer() != null) {
+            plugin.getBatchWriteOptimizer().queue(sql, playerUuid.toString(), itemsJson, itemsJson);
+        } else {
+            plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
+                try (Connection conn = connector.getConnection();
+                     PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, playerUuid.toString());
+                    ps.setString(2, itemsJson);
+                    ps.setString(3, itemsJson);
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed direct save for autosell", e);
+                }
+            });
+        }
+    }
+
+    public void saveReputation(UUID playerUuid, double reputation) {
+        String sql = "INSERT INTO player_data (player_uuid, reputation) VALUES (?, ?) " +
+                     "ON DUPLICATE KEY UPDATE reputation=?;";
+
+        if (plugin.getBatchWriteOptimizer() != null) {
+            plugin.getBatchWriteOptimizer().queue(sql, playerUuid.toString(), reputation, reputation);
+        } else {
+            plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
+                try (Connection conn = connector.getConnection();
+                     PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, playerUuid.toString());
+                    ps.setDouble(2, reputation);
+                    ps.setDouble(3, reputation);
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed direct save for reputation", e);
+                }
+            });
+        }
+    }
+
+    public double loadReputation(UUID playerUuid) {
+        String query = "SELECT reputation FROM player_data WHERE player_uuid = ?;";
         try (Connection conn = connector.getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
-
-            String itemsJson = gson.toJson(items, setType);
-
             ps.setString(1, playerUuid.toString());
-            ps.setString(2, itemsJson);
-            ps.setString(3, itemsJson);
-
-            ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("reputation");
+                }
+            }
         } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not save autosell settings for " + playerUuid, e);
+            plugin.getLogger().log(Level.SEVERE, "Could not load reputation for " + playerUuid, e);
         }
+        return 50.0;
     }
 
     public Set<String> loadAutosellSettings(UUID playerUuid) {
         String query = "SELECT autosell_items FROM player_data WHERE player_uuid = ?;";
         try (Connection conn = connector.getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
-
             ps.setString(1, playerUuid.toString());
-
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String itemsJson = rs.getString("autosell_items");
@@ -75,27 +114,6 @@ public class PlayerData {
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not load autosell settings for " + playerUuid, e);
         }
-        return null; // Return null if no data or on error
-    }
-
-    public void loadAllAutosellSettings() {
-        String query = "SELECT * FROM player_data";
-        Map<UUID, Set<String>> loadedSettings = plugin.getLoadedAutosellSettings();
-        loadedSettings.clear();
-
-        try (Connection conn = connector.getConnection();
-             PreparedStatement ps = conn.prepareStatement(query);
-             ResultSet rs = ps.executeQuery()) {
-
-            while (rs.next()) {
-                UUID uuid = UUID.fromString(rs.getString("player_uuid"));
-                String itemsJson = rs.getString("autosell_items");
-                Set<String> items = gson.fromJson(itemsJson, setType);
-                loadedSettings.put(uuid, items);
-            }
-            plugin.getLogger().info("Loaded autosell settings for " + loadedSettings.size() + " players from the database.");
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not load autosell settings from database!", e);
-        }
+        return null; 
     }
 }

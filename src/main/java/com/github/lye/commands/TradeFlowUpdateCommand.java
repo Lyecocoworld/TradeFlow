@@ -29,17 +29,17 @@ public class TradeFlowUpdateCommand extends BaseCommand implements CommandExecut
         }
 
         if (args.length > 0) {
-            Format.sendMessage(sender, getUsage());
+            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
         if (sender instanceof Player) {
             Player player = (Player) sender;
-            Format.sendMessage(player, Config.get().getAdminPricesUpdating());
+            plugin.getMessageService().sendInfoMessage(player, plugin.getMessageSettings().getAdminPricesUpdating(), null);
             plugin.recalculatePrices(); // ✅
             player.sendMessage("§aAuto-pricing snapshot recomputed.");
         } else {
-            Format.sendMessage(sender, Config.get().getPlayersOnly()); // Use message key
+            plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getPlayersOnly(), null); // Use message key
         }
         return true;
     }

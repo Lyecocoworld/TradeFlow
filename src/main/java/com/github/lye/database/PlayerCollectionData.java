@@ -87,4 +87,25 @@ public class PlayerCollectionData implements IPlayerCollectionData {
         }
         return false;
     }
+
+    @Override
+    public void resetPlayerCollection(UUID playerUUID, String itemKey) {
+        String query;
+        if (itemKey == null) {
+            query = "DELETE FROM player_collections WHERE player_uuid = ?";
+        } else {
+            query = "DELETE FROM player_collections WHERE player_uuid = ? AND item_key = ?";
+        }
+
+        try (Connection conn = connector.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, playerUUID.toString());
+            if (itemKey != null) {
+                ps.setString(2, itemKey);
+            }
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Could not reset player collection!", e);
+        }
+    }
 }

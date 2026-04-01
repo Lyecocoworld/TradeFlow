@@ -6,8 +6,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import lombok.Cleanup;
-import org.bukkit.Bukkit;
-import com.github.lye.TradeFlow;
 import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
@@ -20,16 +18,14 @@ import com.github.lye.util.Format;
 public class CsvHandler {
 
     /**
-     * Write the price data for all items to a CSV file.
+     * Write the price data for all items to a CSV file, under the given data folder.
      */
-    public static void writePriceData(Database database) {
-        if (!Config.get().isWebServer()) return;
+    public static void writePriceData(Database database, ShopUtil shopUtil, TradeFlowLogger logger, File dataFolder) {
         // This method is already called from an async task in Database.java,
         // so we execute directly instead of creating another illegal async task.
-        TradeFlowLogger logger = Format.getLog();
         try {
             logger.config("Writing price data to CSV file.");
-            writeCsv(database);
+            writeCsv(database, shopUtil, logger, dataFolder);
             logger.config("Price data written to data.csv");
         } catch (IOException e) {
             logger.severe("Could not write data to csv file.");
@@ -37,25 +33,23 @@ public class CsvHandler {
         }
     }
 
-    private static void writeCsv(Database database) throws IOException {
-        TradeFlow instance = TradeFlow.getInstance();
-        File dataFolder = new File(instance.getDataFolder(), "/web/data");
+    private static void writeCsv(Database database, ShopUtil shopUtil, TradeFlowLogger logger, File dataFolder) throws IOException {
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-        File file = new File(instance.getDataFolder() + "/web/data/data.csv");
+        File file = new File(dataFolder, "data.csv");
         if (!file.exists()) {
             file.delete();
         }
         file.createNewFile();
         @Cleanup
         BufferedWriter writer = new BufferedWriter(new FileWriter(file));
-        String[] shopNames = ShopUtil.getShopNames(database);
+        String[] shopNames = shopUtil.getShopNames();
         Arrays.sort(shopNames);
         int size = shopNames.length;
         Shop[] shops = new Shop[size];
         for (int i = 0; i < size; i++) {
-            shops[i] = ShopUtil.getShop(database, shopNames[i], true);
+            shops[i] = shopUtil.getShop(shopNames[i], true);
         }
         for (int i = 0; i < size; i++) {
             if (i < size - 1) {

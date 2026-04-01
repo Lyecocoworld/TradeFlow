@@ -24,13 +24,12 @@ public class TradeFlowAdminHelpCommand extends BaseCommand {
         }
 
         if (args.length > 0) {
-            Format.sendMessage(sender, getUsage());
+            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
-        Config config = Config.get();
-        for (String message : config.getAdminHelp()) {
-            Format.sendMessage(sender, message);
+        for (String message : plugin.getMessageSettings().getAdminHelp()) {
+            plugin.getMessageService().sendInfoMessage(sender, message, null);
         }
         return true;
     }

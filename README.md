@@ -1,106 +1,36 @@
 # 💱 TradeFlow  
 ### Cross-Server Dynamic Economy System for Minecraft
 
-**TradeFlow** is one of the only *cross-server dynamic economy systems* ever built for Minecraft.  
-It synchronizes **prices, stocks, and transactions** across multiple servers in real time — creating a **unified, reactive market** shared by your entire network.
+**TradeFlow** is a high-performance, scalable economy engine for Spigot, Paper, and Folia.  
+It features real-time multi-server synchronization, dynamic pricing based on supply/demand, and advanced gameplay mechanics like a Black Market and Economic Events.
 
 ---
 
-## ⚙️ Overview
+## 📚 Documentation
 
-Designed for **Paper**, **Folia**, and **Velocity** environments, TradeFlow combines **local caching** with **distributed database synchronization**  
-(**MySQL + MapDB**) to ensure **smooth, safe, and consistent** data flow across your servers.
-
-The system continuously adapts to player activity, crafting recipes, and market volatility,  
-bringing your Minecraft economy to life — dynamic, self-regulating, and fair.
-
----
-
-## 🧩 Core Features
-
-### 📊 Dynamic Auto-Pricing Engine
-Automatically adjusts item prices according to:
-- Player buying and selling behavior  
-- Crafting and production costs  
-- Volatility, elasticity, and resistance models  
-
-> Every transaction shapes the market.
+| Guide | Description |
+| :--- | :--- |
+| **[🎮 Gameplay Guide](docs/GAMEPLAY.md)** | For Players: How pricing works, Black Market, Rumors. |
+| **[🛠️ Admin Guide](docs/ADMINISTRATION.md)** | For Admins: Installation, MySQL/Redis Config, Commands. |
+| **[🏗️ Architecture](docs/ARCHITECTURE.md)** | For Devs: Repository Pattern, Async Write-Behind, Redis Protocol. |
 
 ---
 
-### 🌍 Cross-Server Economy
-Keep your economy consistent across all servers and worlds:
-- Shared prices, stocks, and player collections  
-- Real-time synchronization through MySQL or Redis  
-- Ideal for large-scale Paper or Velocity networks  
+## 🚀 Key Features
 
-> One market. Multiple worlds. Full synchronization.
-
----
-
-### 🧱 Collect-First Access System
-Control how items are unlocked:
-- **PLAYER** → Each player must collect the item once  
-- **SERVER** → Unlocked when anyone obtains it  
-- **NONE** → Always available  
-
-> Add a layer of progression and discovery to your shop system.
+*   **Dynamic Pricing:** Prices adjust automatically based on player trading.
+*   **Async Performance:** Built with a non-blocking "Write-Behind" architecture. Zero lag.
+*   **Cluster Ready:** Syncs instantly across multiple servers via Redis.
+*   **Anti-Farm:** Smart "Price Spread" prevents infinite money glitches.
+*   **Black Market:** Rumors, Flash Sales, and secret trades.
 
 ---
 
-### ⚙️ Global Stock Management
-Limit and reset market availability dynamically:
-- Per-item stock caps (daily, weekly, or monthly)  
-- Auto-reset scheduler built-in  
-- Configurable per category or section  
-
-> Simulate scarcity and realistic market pressure.
+## 💾 Database Support
+- **MapDB** (Local File - Zero setup)
+- **MySQL / MariaDB** (Enterprise storage)
+- **Redis** (Real-time Sync)
 
 ---
 
-### 💾 Hybrid Database System
-Reliable and high-performance storage powered by:
-- **MapDB** for local caching  
-- **MySQL** for distributed persistence  
-- Optional **Redis** for real-time event broadcasting  
-
-> Async by design, resilient by architecture.
-
----
-
-### 🧩 Modular & Extensible Design
-Built for developers and advanced networks:
-- Clean API for integrations and bots  
-- Custom price engines and access logic  
-- Async hooks and scalable data layers  
-
-> Extend, tweak, and tune TradeFlow for your unique economy.
-
----
-
-## 🌐 Result
-
-TradeFlow turns your Minecraft network into a **living economic ecosystem** —  
-**balanced**, **reactive**, and **completely player-driven**.  
-From small servers to cross-network infrastructures, TradeFlow ensures a coherent economy everywhere.
-
----
-
-### 💼 Example Use-Cases
-- Multi-world survival servers with one shared market  
-- Faction or city servers with scarcity & inflation  
-- Roleplay networks using Collect-First progression  
-- Trading hubs with dynamic, self-balancing prices  
-
----
-
-### 🧱 Requirements
-- Java 17 +  
-- Paper / Folia 1.20 – 1.21 compatible  
-- Optional: MySQL (recommended) + Redis (for cross-server live sync)
-
----
-
-### 💬 Summary
-> **TradeFlow** — the heartbeat of your Minecraft economy.  
-> Cross-server, dynamic, scalable, and truly alive.
+*Documentation generated for TradeFlow v2.0*

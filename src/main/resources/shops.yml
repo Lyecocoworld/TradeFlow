@@ -1,1134 +1,1156 @@
 # ---------------------------------------------------- #
-#            Auto-Tune Shop Configuration File           #
+#            TradeFlow Shop Configuration File           #
 # ---------------------------------------------------- #
 # This file defines the layout of your shop GUI and all the items available within it.
 # Prices and limits will automatically adjust based on supply & demand,
 # and now, also based on crafting costs and economic events!
+# Global stock: every item now has a weekly base stock window. Configure per-item with
+# base-stock-min/base-stock-max (stock filled each week if below the target) and optional
+# global-stock-limit/global-stock-period. If not set, defaults are applied automatically.
 
 # --- SECTIONS CONFIGURATION ---
-# The 'sections' block defines the main categories that appear in your shop GUI.
-# Each section represents a clickable icon that leads to a list of items.
+defaults: {}
 sections:
-  ores:
-    display: <b><gold>Ores & Minerals</gold></b>
-    image: diamond
-    x: 1
-    y: 1
-
   blocks:
     display: <b><gold>Building Blocks</gold></b>
     image: bricks
     x: 2
     y: 1
-
-  farming:
-    display: <b><gold>Farming & Food</gold></b>
-    image: golden_carrot
+  
+  nature:
+    display: <b><green>Nature & Flora</green></b>
+    image: oak_sapling
     x: 3
     y: 1
 
-  mob_drops:
-    display: <b><gold>Mob Drops</gold></b>
-    image: skeleton_skull
+  colors:
+    display: <b><light_purple>Colors & Decor</light_purple></b>
+    image: pink_wool
     x: 4
     y: 1
 
-  brewing:
-    display: <b><gold>Brewing</gold></b>
-    image: potion
+  minerals:
+    display: <b><aqua>Ores & Valuables</aqua></b>
+    image: diamond
     x: 5
     y: 1
 
-  nether_end:
-    display: <b><gold>Nether & End</gold></b>
-    image: ender_eye
+  farming:
+    display: <b><yellow>Farming & Food</yellow></b>
+    image: golden_carrot
     x: 6
     y: 1
 
-  tools:
-    display: <b><gold>Tools & Weapons</gold></b>
-    image: netherite_sword
+  mob_drops:
+    display: <b><red>Mob Drops</red></b>
+    image: skeleton_skull
     x: 7
     y: 1
 
+  nether_end:
+    display: <b><dark_purple>Nether & End</dark_purple></b>
+    image: ender_eye
+    x: 8
+    y: 1
+
   redstone:
-    display: <b><red>Redstone</red></b>
+    display: <b><dark_red>Redstone & Tech</dark_red></b>
     image: redstone
-    x: 2
-    y: 3
+    x: 3
+    y: 2
 
   misc:
     display: <b><gray>Miscellaneous</gray></b>
     image: bundle
-    x: 3
-    y: 3
+    x: 4
+    y: 2
+
+  tools:
+    display: <b><gray>Tools & Combat</gray></b>
+    image: iron_sword
+    x: 5
+    y: 2
 
   enchantments:
     display: <b><gold>Enchantments</gold></b>
     image: enchanted_book
-    x: 4
-    y: 3
-    collect-first: NONE # Par défaut, les livres/enchantements sont achetables sans collecte préalable. Override par item possible via items.<id>.access.collect-first
+    x: 6
+    y: 2
+    collect-first: NONE
 
 # --- SHOP ITEMS CONFIGURATION ---
-# The 'items' block defines all items available in your shop.
-# Each item must have a 'section' property that matches one of the sections defined above.
-# Item names must be valid Minecraft item IDs (e.g., 'DIAMOND', 'OAK_LOG').
-items:
-  # --- Ores & Minerals ---
-  amethyst_shard:
-    section: ores
-    price: 30
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.65
-    global-stock-limit: 192
-    global-stock-period: weekly
-  coal:
-    section: ores
-    price: 8
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.4
-  coal_block:
-    section: ores
-    price: 72
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.4
-  copper_ingot:
-    section: ores
-    price: 10
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.4
-  diamond:
-    section: ores
-    price: 250
-    sell-price-difference: 25
-    max-buy: 16
-    max-sell: 32
-    volatility: 0.8
-    global-stock-limit: 96
-    global-stock-period: weekly
-  diamond_block:
-    section: ores
-    price: 2250
-    max-buy: 2
-    max-sell: 4
-    volatility: 0.8
-  emerald:
-    section: ores
-    price: 150
-    sell-price-difference: 20
-    max-buy: 32
-    max-sell: 64
-    volatility: 0.75
-    global-stock-limit: 192
-    global-stock-period: weekly
-  emerald_block:
-    section: ores
-    price: 1350
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.75
-  flint:
-    section: ores
-    price: 4
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.3
-  iron_ingot:
-    section: ores
-    price: 50 # Auto-calculé, mais ici on met un anchor
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.25
-    m: 0.12
-    t: 0.05
-    pmin: 10
-    pmax: 150
-    free: false
-  lapis_block:
-    section: ores
-    price: 135
-    max-buy: 16
-    max-sell: 32
-    volatility: 0.5
-  lapis_lazuli:
-    section: ores
-    price: 15
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.5
-  netherite_block:
-    section: ores
-    price: 9000
-    max-buy: 1
-    max-sell: 2
-    volatility: 1.0
-  raw_copper:
-    section: ores
-    price: 10
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.4
-  raw_copper_block:
-    section: ores
-    price: 90
-    max-buy: 16
-    max-sell: 32
-    volatility: 0.4
-  raw_gold:
-    section: ores
-    price: 20
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.6
-  raw_gold_block:
-    section: ores
-    price: 180
-    max-buy: 8
-    max-sell: 16
-    volatility: 0.6
-  raw_iron:
-    section: ores
-    price: 12
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.45
-  raw_iron_block:
-    section: ores
-    price: 108
-    max-buy: 16
-    max-sell: 32
-    volatility: 0.45
+# NOTE ON PRICING LOGIC (Rebalanced in 2025):
+# - Common blocks (Cobble, Dirt) have very low sell prices to prevent clutter profit.
+# - Farmable items (Iron, Gold, Emerald) have aggressive spreads (Buy High, Sell Low) to nerf AFK farms.
+# - Rare items (Diamonds, Netherite) maintain value better (Sell is ~50-60% of Buy).
+# - Volatility is higher on luxury items to simulate market panic.
 
-  # --- Building Blocks ---
-  acacia_log:
-    section: blocks
-    price: 9
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.35
-  bamboo:
-    section: blocks
-    price: 1.0
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.2
-  birch_log:
-    section: blocks
-    price: 8
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.35
-  bookshelf:
-    section: blocks
-    price: 45
-    max-buy: 32
-    max-sell: 64
-    volatility: 0.4
-  bricks:
-    section: blocks
-    price: 12
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.3
-  chest:
-    section: blocks
-    price: 16 # Auto-calculé, mais ici on met un anchor
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.3
-  clay_ball:
-    section: blocks
-    price: 3
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.3
+items:
+  # --- BLOCKS (Construction) ---
   cobblestone:
     section: blocks
-    price: 2
-    max-buy: 1024
-    max-sell: 2048
-    volatility: 0.15
-  dark_oak_log:
+    price: 1.0
+    sell-price-difference: 80
+    max-buy: 2304
+    max-sell: 2304
+    volatility: 0.05
+  granite:
     section: blocks
-    price: 9
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.35
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.1
   diorite:
     section: blocks
-    price: 1.0
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.1
+  andesite:
+    section: blocks
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.1
+  stone:
+    section: blocks
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.1
+  smooth_stone:
+    section: blocks
+    price: 3.0
     max-buy: 512
+    max-sell: 512
+    volatility: 0.1
+  deepslate:
+    section: blocks
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.1
+  cobbled_deepslate:
+    section: blocks
+    price: 1.5
+    sell-price-difference: 80
+    max-buy: 2304
+    max-sell: 2304
+    volatility: 0.05
+  polished_deepslate:
+    section: blocks
+    price: 2.5
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.1
+  tuff:
+    section: blocks
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.1
+  calcite:
+    section: blocks
+    price: 5.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.2
+  bricks:
+    section: blocks
+    price: 10.0
+    max-buy: 512
+    max-sell: 256
+    volatility: 0.2
+  mud_bricks:
+    section: blocks
+    price: 4.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.2
+  packed_mud:
+    section: blocks
+    price: 3.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.2
+  glass:
+    section: blocks
+    price: 4.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.2
+  sand:
+    section: blocks
+    price: 2.0
+    max-buy: 1024
+    max-sell: 1024
+    volatility: 0.2
+  gravel:
+    section: blocks
+    price: 2.0
+    max-buy: 1024
     max-sell: 1024
     volatility: 0.2
   dirt:
     section: blocks
-    price: 1
-    max-buy: 1024
-    max-sell: 2048
-    volatility: 0.1
-  furnace:
+    price: 1.0
+    sell-price-difference: 90
+    max-buy: 2304
+    max-sell: 2304
+    volatility: 0.05
+  prismarine:
     section: blocks
-    price: 16 # Auto-calculé, mais ici on met un anchor
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.2
-  glass:
+    price: 8.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  prismarine_bricks:
     section: blocks
-    price: 3 # Auto-calculé, mais ici on met un anchor
+    price: 10.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  dark_prismarine:
+    section: blocks
+    price: 12.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  sea_lantern:
+    section: blocks
+    price: 20.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  oak_log:
+    section: blocks
+    price: 8.0
     max-buy: 512
-    max-sell: 1024
-    volatility: 0.25
-  gravel:
+    max-sell: 512
+    volatility: 0.3
+  spruce_log:
     section: blocks
-    price: 2
+    price: 8.0
     max-buy: 512
-    max-sell: 1024
-    volatility: 0.2
-  hay_block:
+    max-sell: 512
+    volatility: 0.3
+  birch_log:
     section: blocks
-    price: 27
-    max-buy: 64
-    max-sell: 128
+    price: 8.0
+    max-buy: 512
+    max-sell: 512
     volatility: 0.3
   jungle_log:
     section: blocks
-    price: 10
+    price: 8.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.3
+  acacia_log:
+    section: blocks
+    price: 8.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.3
+  dark_oak_log:
+    section: blocks
+    price: 8.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.3
+  mangrove_log:
+    section: blocks
+    price: 9.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.3
+  cherry_log:
+    section: blocks
+    price: 9.0
+    max-buy: 512
+    max-sell: 512
+    volatility: 0.3
+  obsidian:
+    section: blocks
+    price: 40.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.5
+
+  # --- NATURE (Flora) ---
+  oak_sapling:
+    section: nature
+    price: 5.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.2
+  spruce_sapling:
+    section: nature
+    price: 5.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.2
+  cherry_sapling:
+    section: nature
+    price: 10.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  mangrove_propagule:
+    section: nature
+    price: 10.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  crimson_fungus:
+    section: nature
+    price: 8.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  warped_fungus:
+    section: nature
+    price: 8.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  shroomlight:
+    section: nature
+    price: 15.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.4
+  pointed_dripstone:
+    section: nature
+    price: 3.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.2
+  dripstone_block:
+    section: nature
+    price: 12.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.2
+  spore_blossom:
+    section: nature
+    price: 50.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.5
+  lily_pad:
+    section: nature
+    price: 10.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.4
+  cactus:
+    section: nature
+    price: 3.0
+    sell-price-difference: 80 # Anti-AFK farm nerf
     max-buy: 256
     max-sell: 512
     volatility: 0.4
-  mud:
-    section: blocks
+  bamboo:
+    section: nature
+    price: 2.0
+    sell-price-difference: 80 # Anti-AFK farm nerf
+    max-buy: 384
+    max-sell: 768
+    volatility: 0.35
+  moss_block:
+    section: nature
+    price: 2.0
+    sell-price-difference: 90 # Bonemeal Farm Nerf
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.2
+  moss_carpet:
+    section: nature
     price: 1.0
     max-buy: 512
     max-sell: 1024
     volatility: 0.1
-  oak_log:
-    section: blocks
-    price: 8
+
+  # --- COLORS (Wool, Dyes, Terracotta) ---
+  white_wool:
+    section: colors
+    price: 5.0
     max-buy: 256
     max-sell: 512
-    volatility: 0.35
-  oak_planks:
-    section: blocks
-    price: 2 # Auto-calculé, mais ici on met un anchor
-    max-buy: 1024
-    max-sell: 2048
-    volatility: 0.25
-  oak_slab:
-    section: blocks
-    price: 1
-    max-buy: 1024
-    max-sell: 2048
     volatility: 0.2
-  sand:
-    section: blocks
-    price: 2
-    max-buy: 1024
-    max-sell: 2048
-    volatility: 0.2
-  spruce_log:
-    section: blocks
-    price: 8
+  black_wool:
+    section: colors
+    price: 5.0
     max-buy: 256
     max-sell: 512
-    volatility: 0.35
-  stone:
-    section: blocks
-    price: 2
-    max-buy: 1024
-    max-sell: 2048
     volatility: 0.2
-  stone_bricks:
-    section: blocks
-    price: 2 # Auto-calculé, mais ici on met un anchor
-    max-buy: 512
-    max-sell: 1024
+  red_wool:
+    section: colors
+    price: 5.0
+    max-buy: 256
+    max-sell: 512
     volatility: 0.2
-  vine:
-    section: blocks
-    price: 1.0
+  blue_wool:
+    section: colors
+    price: 5.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.2
+  green_wool:
+    section: colors
+    price: 5.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.2
+  white_dye:
+    section: colors
+    price: 2.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.1
+  black_dye:
+    section: colors
+    price: 2.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.1
+  red_dye:
+    section: colors
+    price: 2.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.1
+  blue_dye:
+    section: colors
+    price: 2.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.1
+  green_dye:
+    section: colors
+    price: 2.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.1
+  yellow_dye:
+    section: colors
+    price: 2.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.1
+  terracotta:
+    section: colors
+    price: 4.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.2
+  white_concrete:
+    section: colors
+    price: 4.0
     max-buy: 256
     max-sell: 512
     volatility: 0.2
 
-  # --- Farming & Food ---
-  apple:
-    section: farming
-    price: 10
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.5
-  baked_potato:
-    section: farming
-    price: 4
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.3
-  beetroot:
-    section: farming
-    price: 3
+  # --- MINERALS (Ores & Valuables) ---
+  coal:
+    section: minerals
+    price: 5.0
     max-buy: 512
-    max-sell: 1024
-    volatility: 0.3
-  beetroot_seeds:
-    section: farming
-    price: 1
-    max-buy: 256
     max-sell: 512
-    volatility: 0.2
-  bread:
-    section: farming
-    price: 9
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.25
-  brown_mushroom:
-    section: farming
-    price: 5
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.2
-  cake:
-    section: farming
-    price: 20
-    max-buy: 16
-    max-sell: 32
-    volatility: 0.5
-  carrot:
-    section: farming
-    price: 3
+    volatility: 0.3
+  charcoal:
+    section: minerals
+    price: 4.0
     max-buy: 512
-    max-sell: 1024
-    volatility: 0.3
-  cocoa_beans:
-    section: farming
-    price: 5
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.45
-  cooked_beef:
-    section: farming
-    price: 10
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.4
-  cooked_chicken:
-    section: farming
-    price: 8
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.4
-  cooked_porkchop:
-    section: farming
-    price: 10
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.4
-  cookie:
-    section: farming
-    price: 3
-    max-buy: 256
     max-sell: 512
+    volatility: 0.3
+  raw_iron:
+    section: minerals
+    price: 15.0
+    sell-price-difference: 70 # Farm nerf
+    max-buy: 192
+    max-sell: 256
     volatility: 0.35
-  melon_slice:
-    section: farming
-    price: 1
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.25
-  milk_bucket:
-    section: farming
-    price: 10
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.3
-  potato:
-    section: farming
-    price: 3
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.3
-  pumpkin:
-    section: farming
-    price: 12
-    max-buy: 128
+  iron_ingot:
+    section: minerals
+    price: 20.0
+    sell-price-difference: 70 # Farm nerf
+    max-buy: 192
     max-sell: 256
-    volatility: 0.4
-  pumpkin_pie:
-    section: farming
-    price: 15
-    max-buy: 64
-    max-sell: 128
+    volatility: 0.35
+  raw_copper:
+    section: minerals
+    price: 8.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  copper_ingot:
+    section: minerals
+    price: 10.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  raw_gold:
+    section: minerals
+    price: 20.0
+    sell-price-difference: 85 # Farm nerf (auto-farm cut)
+    max-buy: 96
+    max-sell: 192
     volatility: 0.45
-  sugar_cane:
-    section: farming
-    price: 4
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.3
-  wheat:
-    section: farming
-    price: 3
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.3
-  wheat_seeds:
-    section: farming
-    price: 1
+  gold_ingot:
+    section: minerals
+    price: 24.0
+    sell-price-difference: 85 # Farm nerf (auto-farm cut)
+    max-buy: 96
+    max-sell: 192
+    volatility: 0.45
+  lapis_lazuli:
+    section: minerals
+    price: 10.0
     max-buy: 256
     max-sell: 512
-    volatility: 0.2
-
-  # --- Mob Drops ---
-  bone:
-    section: mob_drops
-    price: 4
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.3
-  ender_pearl:
-    section: mob_drops
-    price: 40
+    volatility: 0.4
+  diamond:
+    section: minerals
+    price: 200.0
+    sell-price-difference: 40 # Buy 200, Sell 120
     max-buy: 32
     max-sell: 64
-    volatility: 0.7
-    global-stock-limit: 192
+    volatility: 0.8
+    global-stock-limit: 128
     global-stock-period: weekly
-  feather:
-    section: mob_drops
-    price: 4
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.3
-  ghast_tear:
-    section: mob_drops
-    price: 200
-    max-buy: 16
-    max-sell: 32
+  emerald:
+    section: minerals
+    price: 150.0
+    sell-price-difference: 90 # Buy 150, Sell 15
+    max-buy: 64
+    max-sell: 128
     volatility: 0.9
-    global-stock-limit: 48
+    global-stock-limit: 256
     global-stock-period: weekly
-  gunpowder:
-    section: mob_drops
-    price: 15
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.6
-  leather:
-    section: mob_drops
-    price: 10
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.4
-  phantom_membrane:
-    section: mob_drops
-    price: 100
-    max-buy: 32
-    max-sell: 64
-    volatility: 0.8
-    global-stock-limit: 96
-    global-stock-period: weekly
-  rotten_flesh:
-    section: mob_drops
-    price: 1
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.2
-  slime_ball:
-    section: mob_drops
-    price: 25
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.65
-    global-stock-limit: 192
-    global-stock-period: weekly
-  spider_eye:
-    section: mob_drops
-    price: 8
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.5
-  string:
-    section: mob_drops
-    price: 5
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.4
-
-  # --- Brewing ---
-  blaze_powder:
-    section: brewing
-    price: 75
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.8
-  fermented_spider_eye:
-    section: brewing
-    price: 15
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.55
-  glass_bottle:
-    section: brewing
-    price: 9
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.2
-  glistering_melon_slice:
-    section: brewing
-    price: 10
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.45
-  glowstone_dust:
-    section: brewing
-    price: 8
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.5
-  golden_carrot:
-    section: brewing
-    price: 10
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.5
-  magma_cream:
-    section: brewing
-    price: 30
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.65
-  nether_wart:
-    section: brewing
-    price: 12
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.6
-  pufferfish:
-    section: brewing
-    price: 50
-    max-buy: 32
-    max-sell: 64
-    volatility: 0.7
-    global-stock-limit: 48
-    global-stock-period: weekly
-
-  # --- Nether & End ---
-  blaze_rod:
-    section: nether_end
-    price: 150
-    max-buy: 32
-    max-sell: 64
-    volatility: 0.85
-    global-stock-limit: 96
-    global-stock-period: weekly
-  end_crystal:
-    section: nether_end
-    price: 250
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.95
-  end_stone:
-    section: nether_end
-    price: 5
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.4
-  ender_eye:
-    section: nether_end
-    price: 115
-    max-buy: 16
-    max-sell: 32
-    volatility: 0.75
-  nether_bricks:
-    section: nether_end
-    price: 4
-    max-buy: 512
-    max-sell: 1024
-    volatility: 0.2
-  netherite_ingot:
-    section: nether_end
-    price: 1000
-    max-buy: 2
-    max-sell: 4
-    volatility: 1.0
   netherite_scrap:
-    section: nether_end
-    price: 1000
+    section: minerals
+    price: 500.0
     max-buy: 8
     max-sell: 16
     volatility: 1.0
     global-stock-limit: 32
     global-stock-period: weekly
-  netherrack:
-    section: nether_end
-    price: 1
-    max-buy: 1024
-    max-sell: 2048
-    volatility: 0.1
-  quartz:
-    section: nether_end
-    price: 6
+  netherite_ingot:
+    section: minerals
+    price: 2200.0
+    max-buy: 2
+    max-sell: 4
+    volatility: 1.0
+  amethyst_shard:
+    section: minerals
+    price: 15.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.5
+
+  # --- FARMING & FOOD ---
+  wheat:
+    section: farming
+    price: 3.0
     max-buy: 512
     max-sell: 1024
-    volatility: 0.5
-  shulker_shell:
-    section: nether_end
-    price: 500
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.9
-    global-stock-limit: 24
-    global-stock-period: weekly
-  soul_sand:
-    section: nether_end
-    price: 3
-    max-buy: 256
-    max-sell: 512
     volatility: 0.3
-
-  # --- Tools & Weapons ---
-  arrow:
-    section: tools
-    price: 3
-    max-buy: 256
-    max-sell: 512
+  carrot:
+    section: farming
+    price: 3.0
+    max-buy: 512
+    max-sell: 1024
     volatility: 0.3
-  bow:
-    section: tools
-    price: 15
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.4
-  crossbow:
-    section: tools
-    price: 30
-    max-buy: 3
-    max-sell: 6
-    volatility: 0.55
-  diamond_pickaxe:
-    section: tools
-    price: 752
-    max-buy: 2
-    max-sell: 4
-    volatility: 0.8
-  diamond_sword:
-    section: tools
-    price: 501
-    max-buy: 2
-    max-sell: 4
-    volatility: 0.8
-  fishing_rod:
-    section: tools
-    price: 15
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.4
-  iron_pickaxe:
-    section: tools
-    price: 38
-    max-buy: 3
-    max-sell: 6
-    volatility: 0.5
-  iron_sword:
-    section: tools
-    price: 25
-    max-buy: 3
-    max-sell: 6
-    volatility: 0.5
-  netherite_pickaxe:
-    section: tools
-    price: 1752
-    max-buy: 1
-    max-sell: 2
-    volatility: 1.1
-  netherite_sword:
-    section: tools
-    price: 1501
-    max-buy: 1
-    max-sell: 2
-    volatility: 1.1
-  shield:
-    section: tools
-    price: 14
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.4
-  stone_pickaxe:
-    section: tools
-    price: 7
-    max-buy: 4
-    max-sell: 8
-    volatility: 0.25
-  wooden_pickaxe:
-    section: tools
-    price: 7.5
-    max-buy: 5
-    max-sell: 10
+  potato:
+    section: farming
+    price: 3.0
+    max-buy: 512
+    max-sell: 1024
     volatility: 0.3
-
-  # --- Enchantments ---
-  blast_protection:
-    section: enchantments
-    price: 400
-    max-buy: 3
-    max-sell: 5
-    volatility: 0.7
-    global-stock-limit: 20
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  efficiency:
-    section: enchantments
-    price: 450
-    max-buy: 4
-    max-sell: 6
-    volatility: 0.7
-    global-stock-limit: 20
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  feather_falling:
-    section: enchantments
-    price: 500
-    max-buy: 2
-    max-sell: 4
-    volatility: 0.75
-    global-stock-limit: 15
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  fire_protection:
-    section: enchantments
-    price: 400
-    max-buy: 3
-    max-sell: 5
-    volatility: 0.7
-    global-stock-limit: 20
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  fortune:
-    section: enchantments
-    price: 950
-    max-buy: 1
-    max-sell: 3
-    volatility: 0.9
-    global-stock-limit: 11
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  infinity:
-    section: enchantments
-    price: 1250
-    max-buy: 1
-    max-sell: 2
-    volatility: 1.1
-    global-stock-limit: 15
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  looting:
-    section: enchantments
-    price: 750
-    max-buy: 2
-    max-sell: 4
-    volatility: 0.85
-    global-stock-limit: 12
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  mending:
-    section: enchantments
-    price: 2000
-    max-buy: 1
-    max-sell: 1
-    volatility: 1.2
-    global-stock-limit: 10
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  power:
-    section: enchantments
-    price: 650
-    max-buy: 3
-    max-sell: 5
-    volatility: 0.8
-    global-stock-limit: 15
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  protection:
-    section: enchantments
-    price: 350
-    max-buy: 3
-    max-sell: 5
-    volatility: 0.7
-    global-stock-limit: 20
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  sharpness:
-    section: enchantments
-    price: 450
-    max-buy: 3
-    max-sell: 5
-    volatility: 0.7
-    global-stock-limit: 20
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  silk_touch:
-    section: enchantments
-    price: 1000
-    max-buy: 1
-    max-sell: 2
-    volatility: 1.0
-    global-stock-limit: 10
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-  unbreaking:
-    section: enchantments
-    price: 600
-    max-buy: 3
-    max-sell: 5
-    volatility: 0.8
-    global-stock-limit: 15
-    global-stock-period: weekly
-    access:
-      collect-first: NONE
-
-  # --- Miscellaneous ---
-  black_dye:
-    section: misc
+  beetroot:
+    section: farming
+    price: 3.0
+    max-buy: 512
+    max-sell: 1024
+    volatility: 0.3
+  melon_slice:
+    section: farming
     price: 1.0
-    max-buy: 256
-    max-sell: 512
+    sell-price-difference: 85 # AFK Farm Nerf
+    max-buy: 512
+    max-sell: 1024
     volatility: 0.2
-  blue_dye:
-    section: misc
-    price: 1.0
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.2
-  book:
-    section: misc
-    price: 13
+  pumpkin:
+    section: farming
+    price: 5.0
+    sell-price-difference: 85 # AFK Farm Nerf
     max-buy: 128
     max-sell: 256
     volatility: 0.3
-  bowl:
-    section: misc
-    price: 1.5
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.2
-  brown_dye:
-    section: misc
-    price: 1.0
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.2
-  gold_nugget:
-    section: misc
-    price: 2.2
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.6
-  green_dye:
-    section: misc
-    price: 1.0
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.2
-  honeycomb:
-    section: misc
-    price: 2.0
-    max-buy: 256
-    max-sell: 512
+  sugar_cane:
+    section: farming
+    price: 3.0
+    sell-price-difference: 85 # Easy to farm (auto-farm cut)
+    max-buy: 384
+    max-sell: 768
     volatility: 0.3
-  nether_brick:
-    section: misc
-    price: 2.0
+  kelp:
+    section: farming
+    price: 1.0
+    sell-price-difference: 90 # Fuel Farm Nerf
     max-buy: 512
     max-sell: 1024
     volatility: 0.2
-  obsidian:
-    section: misc
-    price: 20.0
+  sweet_berries:
+    section: farming
+    price: 3.0
+    sell-price-difference: 80 # Fox Farm Nerf
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  glow_berries:
+    section: farming
+    price: 5.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  apple:
+    section: farming
+    price: 10.0
     max-buy: 64
     max-sell: 128
     volatility: 0.5
-  paper:
-    section: misc
-    price: 1.3
+  bread:
+    section: farming
+    price: 10.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.25
+  cooked_beef:
+    section: farming
+    price: 12.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  beef:
+    section: farming
+    price: 5.0
+    sell-price-difference: 70 # Farm nerf
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.3
+  porkchop:
+    section: farming
+    price: 5.0
+    sell-price-difference: 70 # Farm nerf
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.3
+  cooked_porkchop:
+    section: farming
+    price: 12.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  chicken:
+    section: farming
+    price: 4.0
+    sell-price-difference: 70 # Farm nerf
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.3
+  cooked_chicken:
+    section: farming
+    price: 10.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  mutton:
+    section: farming
+    price: 4.0
+    sell-price-difference: 70 # Farm nerf
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.3
+  cooked_mutton:
+    section: farming
+    price: 10.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  golden_carrot:
+    section: farming
+    price: 25.0
+    max-buy: 32
+    max-sell: 64
+    volatility: 0.4
+
+  # --- MOB DROPS ---
+  rotten_flesh:
+    section: mob_drops
+    price: 1.0
+    sell-price-difference: 90 # Gold Farm Nerf
     max-buy: 512
     max-sell: 1024
     volatility: 0.2
-  rabbit_hide:
-    section: misc
-    price: 1.0
+  bone:
+    section: mob_drops
+    price: 3.0
+    sell-price-difference: 85 # Skeleton Farm Nerf (auto-farm cut)
+    max-buy: 192
+    max-sell: 384
+    volatility: 0.3
+  gunpowder:
+    section: mob_drops
+    price: 12.0
+    sell-price-difference: 90 # Creeper Farm Nerf (auto-farm cut)
+    max-buy: 96
+    max-sell: 192
+    volatility: 0.5
+  spider_eye:
+    section: mob_drops
+    price: 5.0
+    sell-price-difference: 80 # Spider Farm Nerf
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  string:
+    section: mob_drops
+    price: 4.0
+    sell-price-difference: 85 # String Farm Nerf
+    max-buy: 192
+    max-sell: 384
+    volatility: 0.4
+  ender_pearl:
+    section: mob_drops
+    price: 40.0
+    sell-price-difference: 70
+    max-buy: 16
+    max-sell: 64
+    volatility: 0.6
+    global-stock-limit: 192
+    global-stock-period: weekly
+  blaze_rod:
+    section: mob_drops
+    price: 30.0
+    max-buy: 32
+    max-sell: 64
+    volatility: 0.7
+  slime_ball:
+    section: mob_drops
+    price: 20.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.6
+  ghast_tear:
+    section: mob_drops
+    price: 150.0
+    max-buy: 8
+    max-sell: 16
+    volatility: 0.8
+  magma_cream:
+    section: mob_drops
+    price: 10.0
+    sell-price-difference: 80
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.5
+  leather:
+    section: mob_drops
+    price: 8.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  ink_sac:
+    section: mob_drops
+    price: 5.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  glow_ink_sac:
+    section: mob_drops
+    price: 5.0
+    sell-price-difference: 80
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+
+  # --- NETHER & END ---
+  netherrack:
+    section: nether_end
+    price: 0.5
+    sell-price-difference: 90
+    max-buy: 2304
+    max-sell: 2304
+    volatility: 0.05
+  soul_sand:
+    section: nether_end
+    price: 3.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.2
+  magma_block:
+    section: nether_end
+    price: 5.0
     max-buy: 256
     max-sell: 512
     volatility: 0.3
-  red_dye:
-    section: misc
-    price: 1.0
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.2
-  stick:
-    section: misc
-    price: 0 # Auto-calculé, mais ici on met un anchor
-    free: true
-    max-buy: 1024
-    max-sell: 2048
-    volatility: 0.2
-  sugar:
-    section: misc
-    price: 4
+  basalt:
+    section: nether_end
+    price: 2.0
     max-buy: 512
     max-sell: 1024
     volatility: 0.2
-  white_dye:
-    section: misc
-    price: 1.0
+  blackstone:
+    section: nether_end
+    price: 2.0
+    max-buy: 512
+    max-sell: 1024
+    volatility: 0.2
+  quartz:
+    section: nether_end
+    price: 8.0
     max-buy: 256
     max-sell: 512
+    volatility: 0.4
+  glowstone_dust:
+    section: nether_end
+    price: 5.0
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.4
+  end_stone:
+    section: nether_end
+    price: 3.0
+    max-buy: 512
+    max-sell: 1024
     volatility: 0.2
+  chorus_fruit:
+    section: nether_end
+    price: 5.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  shulker_shell:
+    section: nether_end
+    price: 500.0
+    sell-price-difference: 30
+    max-buy: 2
+    max-sell: 4
+    volatility: 0.9
+    global-stock-limit: 24
+    global-stock-period: weekly
 
-  # --- Redstone ---
+  # --- REDSTONE & TECH ---
   redstone:
     section: redstone
-    price: 5
+    price: 5.0
+    sell-price-difference: 60
     max-buy: 512
     max-sell: 1024
     volatility: 0.5
   redstone_block:
     section: redstone
-    price: 45
+    price: 45.0
     max-buy: 64
     max-sell: 128
-    volatility: 0.5
-  redstone_torch:
-    section: redstone
-    price: 6
-    max-buy: 256
-    max-sell: 512
     volatility: 0.5
   repeater:
     section: redstone
-    price: 18
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.5
+    price: 20.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.4
   comparator:
     section: redstone
-    price: 25
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.5
-  piston:
-    section: redstone
-    price: 30
+    price: 35.0
     max-buy: 64
     max-sell: 128
-    volatility: 0.5
-  sticky_piston:
-    section: redstone
-    price: 40
-    max-buy: 64
-    max-sell: 128
-    volatility: 0.5
+    volatility: 0.4
   observer:
     section: redstone
-    price: 20
+    price: 30.0
     max-buy: 64
     max-sell: 128
-    volatility: 0.5
-  dropper:
+    volatility: 0.4
+  piston:
     section: redstone
-    price: 15
-    max-buy: 128
-    max-sell: 256
+    price: 40.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.4
+  sticky_piston:
+    section: redstone
+    price: 60.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.4
+  hopper:
+    section: redstone
+    price: 80.0
+    max-buy: 32
+    max-sell: 64
     volatility: 0.5
   dispenser:
     section: redstone
-    price: 20
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.5
-  hopper:
-    section: redstone
-    price: 50
+    price: 25.0
     max-buy: 64
     max-sell: 128
-    volatility: 0.5
-  lever:
+    volatility: 0.4
+  dropper:
     section: redstone
-    price: 3
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.5
-  stone_button:
-    section: redstone
-    price: 2
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.5
-  oak_button:
-    section: redstone
-    price: 1
-    max-buy: 256
-    max-sell: 512
-    volatility: 0.5
-  tripwire_hook:
-    section: redstone
-    price: 10
-    max-buy: 128
-    max-sell: 256
-    volatility: 0.5
-  tnt:
-    section: redstone
-    price: 50
-    max-buy: 32
-    max-sell: 64
-    volatility: 0.7
-  redstone_lamp:
-    section: redstone
-    price: 25
+    price: 10.0
     max-buy: 64
     max-sell: 128
-    volatility: 0.5
+    volatility: 0.3
+  target:
+    section: redstone
+    price: 25.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
   sculk_sensor:
     section: redstone
+    price: 100.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.7
+  rail:
+    section: redstone
+    price: 8.0
+    sell-price-difference: 70 # Iron farm nerf indirect
+    max-buy: 256
+    max-sell: 512
+    volatility: 0.3
+  powered_rail:
+    section: redstone
+    price: 25.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  detector_rail:
+    section: redstone
+    price: 15.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  activator_rail:
+    section: redstone
+    price: 15.0
+    max-buy: 128
+    max-sell: 256
+    volatility: 0.4
+  minecart:
+    section: redstone
+    price: 100.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.4
+
+  # --- MISC ---
+  coal_block:
+    section: misc
+    price: 45.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.3
+  slime_block:
+    section: misc
+    price: 200.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.6
+  honey_block:
+    section: misc
     price: 50.0
     max-buy: 32
     max-sell: 64
+    volatility: 0.4
+  sponge:
+    section: misc
+    price: 250.0
+    max-buy: 8
+    max-sell: 16
+    volatility: 0.8
+  name_tag:
+    section: misc
+    price: 100.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.5
+  saddle:
+    section: misc
+    price: 150.0
+    sell-price-difference: 90 # Raid farm nerf
+    max-buy: 8
+    max-sell: 16
+    volatility: 0.5
+  leather_horse_armor:
+    section: misc
+    price: 50.0
+    max-buy: 4
+    max-sell: 8
+    volatility: 0.3
+  iron_horse_armor:
+    section: misc
+    price: 200.0
+    max-buy: 2
+    max-sell: 4
+    volatility: 0.5
+  golden_horse_armor:
+    section: misc
+    price: 300.0
+    max-buy: 2
+    max-sell: 4
+    volatility: 0.5
+  diamond_horse_armor:
+    section: misc
+    price: 800.0
+    max-buy: 1
+    max-sell: 2
+    volatility: 0.7
+  lead:
+    section: misc
+    price: 15.0
+    max-buy: 32
+    max-sell: 64
+    volatility: 0.3
+  bundle:
+    section: misc
+    price: 50.0
+    max-buy: 4
+    max-sell: 8
+    volatility: 0.4
+  golden_apple:
+    section: misc
+    price: 100.0
+    max-buy: 16
+    max-sell: 32
     volatility: 0.6
+  ender_chest:
+    section: misc
+    price: 250.0
+    max-buy: 4
+    max-sell: 8
+    volatility: 0.5
+  enchanting_table:
+    section: misc
+    price: 300.0
+    max-buy: 2
+    max-sell: 4
+    volatility: 0.5
+  bucket:
+    section: misc
+    price: 45.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.4
+  water_bucket:
+    section: misc
+    price: 50.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.4
+  lava_bucket:
+    section: misc
+    price: 60.0
+    max-buy: 16
+    max-sell: 32
+    volatility: 0.5
 
-# --- Item Families Overrides ---
-# This section allows overriding or defining new item families.
-# Families defined here will completely replace any matching families in config.yml.
-families:
-  raw_iron:
-    variants:
-      - iron_ingot
-      - iron_nugget
-      - iron_block
-      - raw_iron_block
+  # --- TOOLS & COMBAT ---
+  iron_sword:
+    section: tools
+    price: 45.0
+    max-buy: 1
+    max-sell: 2
+    volatility: 0.3
+  diamond_sword:
+    section: tools
+    price: 450.0
+    max-buy: 1
+    max-sell: 2
+    volatility: 0.6
+  bow:
+    section: tools
+    price: 25.0
+    max-buy: 1
+    max-sell: 2
+    volatility: 0.3
+  arrow:
+    section: tools
+    price: 2.0
+    max-buy: 64
+    max-sell: 128
+    volatility: 0.2
+  shield:
+    section: tools
+    price: 20.0
+    max-buy: 1
+    max-sell: 2
+    volatility: 0.3
+  totem_of_undying:
+    section: tools
+    price: 1000.0
+    sell-price-difference: 80 # Raid farm nerf
+    max-buy: 1
+    max-sell: 2
+    volatility: 0.9
+    global-stock-limit: 10
+    global-stock-period: weekly
 
-  wood_set:
-    variants:
-      - oak_log
-      - oak_planks
-      - oak_slab
-      - oak_stairs
-      - oak_fence
-      - oak_door
+  # --- ENCHANTMENTS ---
+  mending:
+    section: enchantments
+    price: 2500.0
+    max-buy: 1
+    max-sell: 0
+    volatility: 1.0
+    global-stock-limit: 5
+    global-stock-period: weekly
+  unbreaking:
+    section: enchantments
+    price: 800.0
+    max-buy: 4
+    max-sell: 0
+    volatility: 0.5
+  sharpness:
+    section: enchantments
+    price: 600.0
+    max-buy: 4
+    max-sell: 0
+    volatility: 0.5
+  protection:
+    section: enchantments
+    price: 600.0
+    max-buy: 4
+    max-sell: 0
+    volatility: 0.5
+  efficiency:
+    section: enchantments
+    price: 600.0
+    max-buy: 4
+    max-sell: 0
+    volatility: 0.5
+  fortune:
+    section: enchantments
+    price: 1200.0
+    max-buy: 2
+    max-sell: 0
+    volatility: 0.8
+  silk_touch:
+    section: enchantments
+    price: 1200.0
+    max-buy: 2
+    max-sell: 0
+    volatility: 0.8
+  looting:
+    section: enchantments
+    price: 1000.0
+    max-buy: 2
+    max-sell: 0
+    volatility: 0.8
+
+families: {}
