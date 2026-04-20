@@ -18,6 +18,8 @@ import com.github.lye.pricing.database.PriceDatabaseAPI;
 import com.github.lye.repository.MySQLShopRepository;
 import com.github.lye.config.settings.IPluginSettings;
 
+import com.github.lye.util.TradeFlowLogger;
+
 import java.sql.SQLException;
 import java.util.function.Consumer;
 
@@ -35,6 +37,7 @@ public class DatabaseBootstrapService {
     private final TradeFlow plugin;
     private final IPluginSettings pluginSettings;
     private final TradeFlowExceptionHandler exceptionHandler;
+    private final TradeFlowLogger tradeLogger;
 
     // Initialized components
     private MySQLConnector mysqlConnector;
@@ -61,6 +64,7 @@ public class DatabaseBootstrapService {
         this.plugin = plugin;
         this.pluginSettings = pluginSettings;
         this.exceptionHandler = exceptionHandler;
+        this.tradeLogger = plugin.getServices().get(TradeFlowLogger.class);
     }
 
     /**
@@ -71,7 +75,7 @@ public class DatabaseBootstrapService {
      */
     public void initialize(Runnable onSuccess, Runnable onFallback) {
         if (!pluginSettings.isDatabaseEnabled()) {
-            plugin.getTradeLogger().config("Database not enabled, using file storage");
+            tradeLogger.config("Database not enabled, using file storage");
             initializeFileStorage();
             if (onFallback != null) {
                 onFallback.run();
@@ -79,7 +83,7 @@ public class DatabaseBootstrapService {
             return;
         }
 
-        plugin.getTradeLogger().config("Connecting to MySQL...");
+        tradeLogger.config("Connecting to MySQL...");
         connectToMySQL(onSuccess, onFallback);
     }
 
@@ -99,7 +103,7 @@ public class DatabaseBootstrapService {
                 }
 
                 this.priceDatabaseAPI = new MySQLPriceDatabaseAPIImpl(
-                    pluginSettings, plugin.getLogger()
+                    mysqlConnector, plugin.getLogger()
                 );
 
                 // Non-blocking: chain initialization as async continuation
@@ -107,16 +111,16 @@ public class DatabaseBootstrapService {
                 this.priceDatabaseAPI.initialize().thenAccept(v -> {
                     try {
                         initMySqlData();
-                        plugin.getTradeLogger().config("MySQL connection established");
+                        tradeLogger.config("MySQL connection established");
                         runSync(onSuccess);
                     } catch (Exception e) {
-                        plugin.getTradeLogger().warning("MySQL init failed: " + e.getMessage());
+                        tradeLogger.warning("MySQL init failed: " + e.getMessage());
                         this.mySqlEnabled = false;
                         initializeFileStorage();
                         runSync(onFallback);
                     }
                 }).exceptionally(ex -> {
-                    plugin.getTradeLogger().warning("Price DB init failed: " + ex.getMessage());
+                    tradeLogger.warning("Price DB init failed: " + ex.getMessage());
                     this.mySqlEnabled = false;
                     initializeFileStorage();
                     runSync(onFallback);
@@ -124,7 +128,7 @@ public class DatabaseBootstrapService {
                 });
 
             } catch (Exception e) {
-                plugin.getTradeLogger().warning("MySQL connection failed, falling back to file storage: " + e.getMessage());
+                tradeLogger.warning("MySQL connection failed, falling back to file storage: " + e.getMessage());
                 this.mySqlEnabled = false;
                 initializeFileStorage();
 
@@ -155,7 +159,7 @@ public class DatabaseBootstrapService {
         this.serverCollectionData.createTable();
 
         this.mySQLShopRepository = new MySQLShopRepository(
-            plugin, mysqlConnector, plugin.getTradeLogger(), batchWriteOptimizer
+            plugin, mysqlConnector, tradeLogger, batchWriteOptimizer
         );
         this.mySQLShopRepository.initSchema();
     }
@@ -180,13 +184,27 @@ public class DatabaseBootstrapService {
 
     /**
      * Shuts down database connections.
+     * <p>
+     * Order matters: the batch write optimizer must flush all remaining queued
+     * writes to the database <b>before</b> the underlying connection pool is closed,
+     * otherwise queued writes are silently discarded.
      */
     public void shutdown() {
-        // Note: BatchWriteOptimizer shutdown is handled by MySQLConnector
+        // 1. Flush remaining batch writes while the connection is still open
+        if (batchWriteOptimizer != null) {
+            try {
+                batchWriteOptimizer.shutdown();
+            } catch (Exception e) {
+                tradeLogger.warning(
+                        "BatchWriteOptimizer shutdown failed: " + e.getMessage());
+            }
+        }
+
+        // 2. Close the connection pool
         if (mysqlConnector != null) {
             try {
                 mysqlConnector.close();
-                plugin.getTradeLogger().config("MySQL connection closed");
+                tradeLogger.config("MySQL connection closed");
             } catch (Exception e) {
                 exceptionHandler.handleDatabaseException("CLOSE",
                     e instanceof SQLException ? (SQLException) e : new SQLException(e));

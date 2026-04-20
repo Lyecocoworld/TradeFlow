@@ -2,6 +2,7 @@ package com.github.lye.commands;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.gui.GuiNavigator;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -36,7 +37,7 @@ public class TradeFlowCommand extends BaseCommand {
     public boolean execute(CommandSender sender, String[] args) {
         // If player and no args, open main shop GUI
         if (sender instanceof Player && args.length == 0) {
-            plugin.getGuiNavigator().openMain((Player) sender);
+            plugin.getServices().get(GuiNavigator.class).openMain((Player) sender);
             return true;
         }
 

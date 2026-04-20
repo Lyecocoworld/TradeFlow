@@ -2,6 +2,8 @@ package com.github.lye.license;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.repository.LicenseRepository;
+import com.github.lye.service.IMessageService;
+import com.github.lye.util.EconomyUtil;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -80,7 +82,7 @@ public class LicenseManager {
         PlayerLicense pl = repository.getLicense(player.getUniqueId());
         if (pl != null && pl.isExpired()) {
             repository.deleteLicense(player.getUniqueId());
-            plugin.getMessageService().sendInfoMessage(player, "<red>Votre licence a expire.</red>", null);
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(player, "<red>Votre licence a expire.</red>", null);
             return null;
         }
         return pl;
@@ -98,12 +100,12 @@ public class LicenseManager {
             }
         }
 
-        if (plugin.getEconomy().getBalance(player) < def.getPrice()) {
-            plugin.getMessageService().sendErrorMessage(player, "not-enough-money", null);
+        if (EconomyUtil.getEconomy().getBalance(player) < def.getPrice()) {
+            plugin.getServices().get(IMessageService.class).sendErrorMessage(player, "not-enough-money", null);
             return;
         }
 
-        plugin.getEconomy().withdrawPlayer(player, def.getPrice());
+        EconomyUtil.getEconomy().withdrawPlayer(player, def.getPrice());
         com.github.lye.util.EconomyUtil.transferToCentralBank(def.getPrice(), plugin);
 
         long expiresAt = System.currentTimeMillis() + TimeUnit.DAYS.toMillis(def.getDurationDays());
@@ -111,7 +113,7 @@ public class LicenseManager {
 
         plugin.getServer().getAsyncScheduler().runNow(plugin, task -> repository.saveLicense(newLicense));
 
-        plugin.getMessageService().sendInfoMessage(player, "<green>Licence " + def.getName() + " acquise !</green>", null);
+        plugin.getServices().get(IMessageService.class).sendInfoMessage(player, "<green>Licence " + def.getName() + " acquise !</green>", null);
     }
 
     public double applyModifiers(Player player, double price, String category, boolean isBuy) {

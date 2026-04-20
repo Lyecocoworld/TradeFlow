@@ -1,6 +1,12 @@
 package com.github.lye.gameplay.rumors;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.Database;
+import com.github.lye.database.ServerStateData;
+import com.github.lye.events.EconomicEventManager;
+import com.github.lye.service.IInventoryService;
+import com.github.lye.service.IMessageService;
+import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -22,20 +28,22 @@ import org.bukkit.World;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RumorManager {
 
     private final TradeFlow plugin;
     private final NamespacedKey RUMOR_KEY;
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
-    private int globalRumorCount = 0;
+    private final AtomicInteger globalRumorCount = new AtomicInteger(0);
     private YamlConfiguration config;
     private final BrokerReputation reputationManager;
 
     // Broker State
     private BrokerLocation currentBrokerLocation;
     private boolean isNight = false;
-    private final List<FlashSale> currentFlashSales = new ArrayList<>();
+    private final List<FlashSale> currentFlashSales = new CopyOnWriteArrayList<>();
 
     public RumorManager(TradeFlow plugin) {
         this.plugin = plugin;
@@ -85,7 +93,7 @@ public class RumorManager {
 
     private void generateFlashSales() {
         currentFlashSales.clear();
-        List<String> allItems = new ArrayList<>(plugin.getLoadedShops().keySet());
+        List<String> allItems = new ArrayList<>(plugin.getServices().get(Database.class).getShops().keySet());
         if (allItems.isEmpty()) return;
 
         int itemCount = config.getInt("flash-sale.item-count", 3);
@@ -99,7 +107,7 @@ public class RumorManager {
         int count = Math.min(itemCount, allItems.size());
         for (int i = 0; i < count; i++) {
             String itemKey = allItems.get(random.nextInt(allItems.size()));
-            com.github.lye.data.Shop shop = plugin.getLoadedShops().get(itemKey);
+            com.github.lye.data.Shop shop = plugin.getServices().get(Database.class).getShops().get(itemKey);
             if (shop == null) continue;
 
             // Discount: discountMin to discountMax off
@@ -198,14 +206,14 @@ public class RumorManager {
         double increase = config.getDouble("rumors.price-increase-per-buy", 500.0);
         double multiplier = config.getDouble(path + ".price-multiplier", 1.0);
         
-        return (basePrice + (globalRumorCount * increase)) * multiplier;
+        return (basePrice + (globalRumorCount.get() * increase)) * multiplier;
     }
 
     public void purchaseRumor(Player player, String tierId) {
         if (tierId == null) tierId = "standard";
         String path = "rumors.tiers." + tierId;
         if (!config.contains(path)) {
-            plugin.getMessageService().sendErrorMessage(player, "<red>Invalid rumor tier.</red>", null);
+            plugin.getServices().get(IMessageService.class).sendErrorMessage(player, "<red>Invalid rumor tier.</red>", null);
             return;
         }
 
@@ -224,18 +232,19 @@ public class RumorManager {
         // 2. Price Calculation
         double finalPrice = getPrice(tierId);
 
-        if (plugin.getEconomy().getBalance(player) < finalPrice) {
-            plugin.getMessageService().sendErrorMessage(player, "rumor-not-enough-money", 
+        if (EconomyUtil.getEconomy().getBalance(player) < finalPrice) {
+            plugin.getServices().get(IMessageService.class).sendErrorMessage(player, "rumor-not-enough-money",
                 Placeholder.parsed("price", Format.currency(finalPrice)));
             return;
         }
 
         // 3. Get True Event Info
-        String trueEventName = plugin.getServerStateData() != null 
-                ? plugin.getServerStateData().getState("next_event_name") // Stored by EconomicEventManager
+        ServerStateData stateData = plugin.getBootstrap().getDatabaseBootstrap().getServerStateData();
+        String trueEventName = stateData != null 
+                ? stateData.getState("next_event_name").join()
                 : null;
-        String trueTimeStr = plugin.getServerStateData() != null
-                ? plugin.getServerStateData().getState("next_event_start_timestamp")
+        String trueTimeStr = stateData != null
+                ? stateData.getState("next_event_start_timestamp").join()
                 : null;
         long trueTime = trueTimeStr != null ? Long.parseLong(trueTimeStr) : 0;
 
@@ -244,12 +253,12 @@ public class RumorManager {
              // Generate a completely fake "True" event for the sake of the mechanic, 
              // OR tell the player nothing is happening (boring).
              // Let's pick a random possible event as the "True" one for now to simulate simulation
-             List<String> allEvents = plugin.getEconomicEventManager().getPossibleEventNames();
+             List<String> allEvents = plugin.getServices().get(EconomicEventManager.class).getPossibleEventNames();
              if (!allEvents.isEmpty()) {
                  trueEventName = allEvents.get(new Random().nextInt(allEvents.size()));
                  trueTime = now + 3600000; // Fake 1h
              } else {
-                 plugin.getMessageService().sendInfoMessage(player, "rumor-no-event", null);
+                 plugin.getServices().get(IMessageService.class).sendInfoMessage(player, "rumor-no-event", null);
                  return;
              }
         }
@@ -261,7 +270,7 @@ public class RumorManager {
         
         if (!isTruth) {
             // Pick a LIE (different event)
-            List<String> allEvents = plugin.getEconomicEventManager().getPossibleEventNames();
+            List<String> allEvents = plugin.getServices().get(EconomicEventManager.class).getPossibleEventNames();
             List<String> wrongEvents = new ArrayList<>(allEvents);
             wrongEvents.remove(trueEventName);
             if (!wrongEvents.isEmpty()) {
@@ -271,7 +280,7 @@ public class RumorManager {
 
         // 5. Transaction
         plugin.getEconomy().withdrawPlayer(player, finalPrice);
-        globalRumorCount++;
+        globalRumorCount.incrementAndGet();
         cooldowns.put(player.getUniqueId(), now);
 
         // 6. Give Item
@@ -290,7 +299,7 @@ public class RumorManager {
         meta.getPersistentDataContainer().set(RUMOR_KEY, PersistentDataType.STRING, data);
         item.setItemMeta(meta);
 
-        plugin.getInventoryService().giveItem(player, item);
+        plugin.getServices().get(IInventoryService.class).giveItem(player, item);
         
         String inflationMsg = config.getString("rumors.messages.price-inflation", "")
                 .replace("<price>", Format.currency(finalPrice));
@@ -396,14 +405,18 @@ public class RumorManager {
     public static class FlashSale {
         public final String itemKey;
         public final double price;
-        public int stock;
+        public final AtomicInteger stock;
         public final int discountPercent;
 
         public FlashSale(String itemKey, double price, int stock, int discountPercent) {
             this.itemKey = itemKey;
             this.price = price;
-            this.stock = stock;
+            this.stock = new AtomicInteger(stock);
             this.discountPercent = discountPercent;
+        }
+
+        public int getStock() {
+            return stock.get();
         }
     }
 }

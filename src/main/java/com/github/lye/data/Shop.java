@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -32,17 +33,18 @@ public class Shop implements Serializable {
     private int[] buys;
     private int[] sells;
     private double[] prices;
-    private double basePrice; // NEW: Permanent anchor price from config
+    private volatile double basePrice; // Permanent anchor price from config
+    private volatile double currentPrice; // Cached from prices[size-1] for lock-free reads
     private int size;
     private final boolean enchantment;
     private CollectFirst setting;
     private Map<UUID, Integer> autosell;
-    private int totalBuys;
-    private int totalSells;
+    private final AtomicInteger totalBuys;
+    private final AtomicInteger totalSells;
     private boolean locked;
     private double customSpd;
     private double volatility;
-    private double change;
+    private volatile double change;
     private int maxBuys;
     private int maxSells;
     private int updateRate;
@@ -54,7 +56,7 @@ public class Shop implements Serializable {
     private Map<UUID, Integer> recentSells;
     private String access;
     
-    private int currentStock;
+    private final AtomicInteger currentStock;
     private int minBaseStock;
     private int maxBaseStock;
 
@@ -78,8 +80,8 @@ public class Shop implements Serializable {
         this.enchantment = enchantment;
         this.setting = setting;
         this.autosell = autosell;
-        this.totalBuys = totalBuys;
-        this.totalSells = totalSells;
+        this.totalBuys = new AtomicInteger(totalBuys);
+        this.totalSells = new AtomicInteger(totalSells);
         this.locked = locked;
         this.customSpd = customSpd;
         this.volatility = volatility;
@@ -94,21 +96,22 @@ public class Shop implements Serializable {
         this.recentBuys = recentBuys;
         this.recentSells = recentSells;
         this.access = access;
-        this.currentStock = currentStock;
+        this.currentStock = new AtomicInteger(currentStock);
         this.minBaseStock = minBaseStock;
         this.maxBaseStock = maxBaseStock;
         this.pricingSettings = pricingSettings;
         this.pluginSettings = pluginSettings;
         this.logger = logger;
+        this.currentPrice = (prices != null && prices.length > 0) ? prices[prices.length - 1] : 0;
     }
 
     // Getters and Setters
     public int getSize() { return size; }
     public void setSize(int size) { this.size = size; }
-    public int getTotalBuys() { return totalBuys; }
-    public void setTotalBuys(int totalBuys) { this.totalBuys = totalBuys; }
-    public int getTotalSells() { return totalSells; }
-    public void setTotalSells(int totalSells) { this.totalSells = totalSells; }
+    public int getTotalBuys() { return totalBuys.get(); }
+    public void setTotalBuys(int totalBuys) { this.totalBuys.set(totalBuys); }
+    public int getTotalSells() { return totalSells.get(); }
+    public void setTotalSells(int totalSells) { this.totalSells.set(totalSells); }
     public double getCustomSpd() { return customSpd; }
     public void setCustomSpd(double customSpd) { this.customSpd = customSpd; }
     public int getUpdateRate() { return updateRate; }
@@ -136,8 +139,24 @@ public class Shop implements Serializable {
     public double getChange() { return change; }
     public void setSetting(CollectFirst setting) { this.setting = setting; }
     
-    public int getCurrentStock() { return currentStock; }
-    public void setCurrentStock(int currentStock) { this.currentStock = currentStock; }
+    public int getCurrentStock() { return currentStock.get(); }
+    public void setCurrentStock(int currentStock) { this.currentStock.set(currentStock); }
+
+    /**
+     * Atomically adjusts stock by delta with a floor at 0.
+     * Uses a CAS loop to prevent lost updates from concurrent trades.
+     *
+     * @param delta the change (negative for buys, positive for sells)
+     * @return the new stock value after adjustment
+     */
+    public int adjustStock(int delta) {
+        int prev, next;
+        do {
+            prev = currentStock.get();
+            next = Math.max(0, prev + delta);
+        } while (!currentStock.compareAndSet(prev, next));
+        return next;
+    }
     public int getMinBaseStock() { return minBaseStock; }
     public void setMinBaseStock(int minBaseStock) { this.minBaseStock = minBaseStock; }
     public int getMaxBaseStock() { return maxBaseStock; }
@@ -233,12 +252,13 @@ public class Shop implements Serializable {
         this.sells = new int[]{0};
         this.prices = new double[]{startPrice};
         this.basePrice = startPrice; // Set base price here
+        this.currentPrice = startPrice; // Cache current price for lock-free reads
         this.size = 1;
         this.autosell = new ConcurrentHashMap<>();
         this.recentBuys = new ConcurrentHashMap<>();
         this.recentSells = new ConcurrentHashMap<>();
-        this.totalBuys = 0;
-        this.totalSells = 0;
+        this.totalBuys = new AtomicInteger(0);
+        this.totalSells = new AtomicInteger(0);
         this.customSpd = -1;
         this.change = 0;
         this.maxBuys = -1;
@@ -255,7 +275,7 @@ public class Shop implements Serializable {
         this.globalStockPeriod = "";
         this.access = "";
         this.setting = new CollectFirst("NONE");
-        this.currentStock = 0;
+        this.currentStock = new AtomicInteger(0);
         this.minBaseStock = -1;
         this.maxBaseStock = -1;
     }
@@ -276,19 +296,20 @@ public class Shop implements Serializable {
         double startPrice = config.getDouble("price");
         if (startPrice != prices[0]) {
             prices[size - 1] = startPrice;
+            currentPrice = startPrice;
         }
 
         globalStockLimit = config.getInt("global-stock-limit", -1);
         globalStockPeriod = config.getString("global-stock-period", "weekly");
     }
 
-    public synchronized double getPrice() { return prices[size - 1]; }
-    public synchronized void setPrice(double price) { 
-        prices[size - 1] = Math.max(0, price); 
-        
-        // Update change based on the initial base price from config
+    public double getPrice() { return currentPrice; }
+    public void setPrice(double price) { 
+        double p = Math.max(0, price);
+        prices[size - 1] = p;
+        currentPrice = p; // volatile write — makes prices[size-1] write visible
         if (this.basePrice > 0) {
-            this.change = (prices[size - 1] - this.basePrice) / this.basePrice;
+            this.change = (p - this.basePrice) / this.basePrice;
         } else {
             this.change = 0;
         }
@@ -380,6 +401,8 @@ public class Shop implements Serializable {
 
         double currentPrice = rs.getDouble("price");
         this.basePrice = currentPrice; // Set base price from DB
+        this.totalBuys = new AtomicInteger(0);
+        this.totalSells = new AtomicInteger(0);
         
         this.enchantment = rs.getBoolean("enchantment");
         this.locked = rs.getBoolean("locked");
@@ -416,11 +439,11 @@ public class Shop implements Serializable {
         try {
             String coll = rs.getString("collect_first_setting");
             this.setting = new CollectFirst(coll != null ? coll : "NONE");
-        } catch (Exception e) {
+        } catch (SQLException e) {
             this.setting = new CollectFirst("NONE");
         }
 
-        this.currentStock = rs.getInt("current_stock");
+        this.currentStock = new AtomicInteger(rs.getInt("current_stock"));
         this.minBaseStock = rs.getInt("min_base_stock");
         this.maxBaseStock = rs.getInt("max_base_stock");
         
@@ -429,6 +452,7 @@ public class Shop implements Serializable {
         if (this.prices == null || this.prices.length == 0) this.prices = new double[]{currentPrice};
         
         this.size = this.prices.length;
+        this.currentPrice = this.prices[this.size - 1];
     }
 
     public void updateChange() {
@@ -453,13 +477,13 @@ public class Shop implements Serializable {
         this.autosell.merge(uuid, amount, Integer::sum);
     }
 
-    public synchronized void addSells(UUID uuid, int amount) {
-        this.totalSells += amount;
+    public void addSells(UUID uuid, int amount) {
+        this.totalSells.addAndGet(amount);
         this.recentSells.merge(uuid, amount, Integer::sum);
     }
 
-    public synchronized void addBuys(UUID uuid, int amount) {
-        this.totalBuys += amount;
+    public void addBuys(UUID uuid, int amount) {
+        this.totalBuys.addAndGet(amount);
         this.recentBuys.merge(uuid, amount, Integer::sum);
     }
 

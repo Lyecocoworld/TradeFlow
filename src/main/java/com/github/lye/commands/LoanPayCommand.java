@@ -7,8 +7,12 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
+import com.github.lye.config.settings.IPluginSettings;
 import com.github.lye.config.Config;
 import com.github.lye.data.Database;
+import com.github.lye.data.EconomyDataUtil;
 import com.github.lye.data.Loan;
 import com.github.lye.util.Format;
 
@@ -32,20 +36,23 @@ public class LoanPayCommand extends BaseCommand {
 
         Database.acquireWriteLock();
         try {
-            for (Map.Entry<String, Loan> entry : plugin.getDatabase().getLoans().entrySet()) {
+            Database db = plugin.getServices().get(Database.class);
+            IMessageService msgService = plugin.getServices().get(IMessageService.class);
+            IMessageSettings msgSettings = plugin.getServices().get(IMessageSettings.class);
+            for (Map.Entry<String, Loan> entry : db.getLoans().entrySet()) {
                 Loan loan = entry.getValue();
                 if (loan.getPlayer().equals(player.getUniqueId())) {
                     if (loan.isPaid()) {
                         continue;
                     }
 
-                    if (loan.payBack(plugin.getEconomyDataUtil(), plugin.getPluginSettings(), plugin)) {
+                    if (loan.payBack(plugin.getServices().get(EconomyDataUtil.class), plugin.getServices().get(IPluginSettings.class), plugin)) {
                         TagResolver resolver = Placeholder.parsed("value", Format.currency(loan.getValue()));
-                        plugin.getMessageService().sendInfoMessage(player, plugin.getMessageSettings().getLoanPaidBack(), resolver);
+                        msgService.sendInfoMessage(player, msgSettings.getLoanPaidBack(), resolver);
                     } else {
-                        plugin.getMessageService().sendErrorMessage(player, plugin.getMessageSettings().getLoanNotEnoughMoneyPayback(), null);
+                        msgService.sendErrorMessage(player, msgSettings.getLoanNotEnoughMoneyPayback(), null);
                     }
-                    plugin.getDatabase().updateLoan(entry.getKey(), loan);
+                    db.updateLoan(entry.getKey(), loan);
                 }
             }
         } finally {

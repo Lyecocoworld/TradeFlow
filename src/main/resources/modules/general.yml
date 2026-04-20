@@ -126,3 +126,9 @@ system:
 gmq:
   restock-time: "SUNDAY 18:00"   # Jour et heure du restock hebdomadaire (format: "DAY HH:mm")
 
+# --- API Web Server ---
+web-server:
+  enabled: true
+  port: 8989
+  bind-address: "127.0.0.1"      # Only bind to localhost by default. Use "0.0.0.0" to expose to all interfaces (NOT recommended).
+

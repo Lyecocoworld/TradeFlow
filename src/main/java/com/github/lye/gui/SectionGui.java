@@ -3,11 +3,15 @@ package com.github.lye.gui;
 import com.github.lye.TradeFlow;
 import com.github.lye.access.AccessResolver;
 import com.github.lye.config.ConfigResolver;
+import com.github.lye.data.CentralBankStockManager;
 import com.github.lye.data.Section;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
 import com.github.lye.gui.state.PlayerShopState;
+import com.github.lye.market.MarketTrendManager;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import dev.triumphteam.gui.guis.PaginatedGui;
@@ -81,8 +85,8 @@ public class SectionGui {
         this.navigator = navigator;
         this.state = state;
         this.viewer = viewer;
-        this.accessResolver = plugin.getAccessResolver();
-        this.configResolver = plugin.getConfigResolver();
+        this.accessResolver = plugin.getServices().get(AccessResolver.class);
+        this.configResolver = plugin.getServices().get(ConfigResolver.class);
         this.logger = logger;
         this.shopUtil = shopUtil;
         this.messageService = messageService;
@@ -169,7 +173,7 @@ public class SectionGui {
             slotIndex++;
         }
 
-        gui.update();
+        TriumphGuiAdapter.updateSafe(gui, viewer, plugin);
     }
 
     /**
@@ -236,7 +240,7 @@ public class SectionGui {
             event.getWhoClicked().closeInventory();
         }));
 
-        gui.update();
+        TriumphGuiAdapter.updateSafe(gui, viewer, plugin);
     }
 
     private GuiItem buildShopItem(Shop shop, String shopId) {
@@ -306,7 +310,7 @@ public class SectionGui {
                 if (price > basePrice + 0.01) trendArrow = " <green>↑</green>";
                 else if (price < basePrice - 0.01) trendArrow = " <red>↓</red>";
 
-                for (String line : plugin.getMessageSettings().getShopLore()) {
+                for (String line : plugin.getServices().get(IMessageSettings.class).getShopLore()) {
                     TagResolver resolver = TagResolver.resolver(
                             Placeholder.parsed("price", Format.currency(price) + trendArrow),
                             Placeholder.parsed("sell-price", Format.currency(sellPrice)),
@@ -322,9 +326,9 @@ public class SectionGui {
                 }
 
                 // Virtual Stock Display (Central Bank)
-                if (plugin.getCentralBankStockManager() != null) {
-                    int currentStock = plugin.getCentralBankStockManager().getCurrentStock(shop);
-                    int idealStock = plugin.getCentralBankStockManager().getIdealStock(shop);
+                if (plugin.getServices().get(CentralBankStockManager.class) != null) {
+                    int currentStock = plugin.getServices().get(CentralBankStockManager.class).getCurrentStock(shop);
+                    int idealStock = plugin.getServices().get(CentralBankStockManager.class).getIdealStock(shop);
                     String stockStatus = "<green>Abondant</green>";
                     if (currentStock < idealStock * 0.25) stockStatus = "<red><b>PÉNURIE</b></red>";
                     else if (currentStock < idealStock * 0.50) stockStatus = "<yellow>Tendu</yellow>";
@@ -333,14 +337,14 @@ public class SectionGui {
                     lore.add(MiniMessage.miniMessage().deserialize("<gray>Disponibilité Mondiale : " + stockStatus).decoration(TextDecoration.ITALIC, false));
                     lore.add(MiniMessage.miniMessage().deserialize("<gray>Volume : <white>" + Format.compactNumber(currentStock) + "</white> unités").decoration(TextDecoration.ITALIC, false));
 
-                    if (plugin.getCentralBankStockManager().isPublicOrderActive(shop)) {
+                    if (plugin.getServices().get(CentralBankStockManager.class).isPublicOrderActive(shop)) {
                         lore.add(MiniMessage.miniMessage().deserialize("<gold><b>⚡ Commande Publique (+20%)</b></gold>").decoration(TextDecoration.ITALIC, false));
                     }
                 }
 
                 // Add Specific Trend (Hot/Crash) indicator
-                if (plugin.getMarketTrendManager() != null) {
-                    Double specific = plugin.getMarketTrendManager().getSpecificTrend(shopId);
+                if (plugin.getServices().get(MarketTrendManager.class) != null) {
+                    Double specific = plugin.getServices().get(MarketTrendManager.class).getSpecificTrend(shopId);
                     if (specific != null) {
                         lore.add(Component.empty());
                         if (specific > 1.0) {
@@ -383,6 +387,6 @@ public class SectionGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

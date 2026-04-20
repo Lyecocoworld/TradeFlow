@@ -111,19 +111,16 @@ public class ServiceRegistry {
     public <T> T get(Class<T> type) {
         Objects.requireNonNull(type, "Service type cannot be null");
 
-        // Check direct registry
-        Object service = services.get(type);
+        Object service = services.computeIfAbsent(type, key -> {
+            Supplier<?> supplier = suppliers.remove(key);
+            if (supplier != null) {
+                return supplier.get();
+            }
+            return null;
+        });
+
         if (service != null) {
             return (T) service;
-        }
-
-        // Check lazy suppliers
-        Supplier<?> supplier = suppliers.get(type);
-        if (supplier != null) {
-            suppliers.remove(type);
-            T instance = (T) supplier.get();
-            services.put(type, instance);
-            return instance;
         }
 
         throw new com.github.lye.error.TradeFlowException(
@@ -350,6 +347,24 @@ public class ServiceRegistry {
      */
     public RumorManager getRumorManager() {
         return get(RumorManager.class);
+    }
+
+    /**
+     * Gets the trade flow logger.
+     *
+     * @return the trade flow logger
+     */
+    public com.github.lye.util.TradeFlowLogger getTradeFlowLogger() {
+        return get(com.github.lye.util.TradeFlowLogger.class);
+    }
+
+    /**
+     * Gets the Redis client.
+     *
+     * @return the Redis client
+     */
+    public com.github.lye.redis.RedisClient getRedisClient() {
+        return get(com.github.lye.redis.RedisClient.class);
     }
 
     // ==================== LIFECYCLE ====================

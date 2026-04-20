@@ -3,6 +3,7 @@ package com.github.lye.gui;
 import com.github.lye.TradeFlow;
 import com.github.lye.gui.state.PlayerShopState;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -89,6 +90,6 @@ public class EnchantLevelsGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

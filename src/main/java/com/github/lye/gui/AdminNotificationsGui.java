@@ -1,8 +1,11 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.Database;
 import com.github.lye.data.Transaction;
+import com.github.lye.events.EconomicEventManager;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -28,6 +31,9 @@ import java.util.*;
  * @since   0.1
  */
 public class AdminNotificationsGui {
+
+    private static final double SUSPICIOUS_TRANSACTION_THRESHOLD = 100_000.0;
+    private static final double LOW_BANK_BALANCE_THRESHOLD = 100_000.0;
 
     private final TradeFlow plugin;
     private final AdminNavigator navigator;
@@ -135,7 +141,11 @@ public class AdminNotificationsGui {
             lore.add(MiniMessage.miniMessage().deserialize("<white>Ouvrir le journal complet</white>")
                     .decoration(TextDecoration.ITALIC, false));
         });
-        gui.setItem(50, new GuiItem(viewAll, event -> navigator.openTransactions(admin)));
+        gui.setItem(50, new GuiItem(viewAll, event -> {
+            Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
+            navigator.openTransactions(admin);
+        }));
     }
 
     private ItemStack createSuspiciousTransactionItem(Transaction tx, DateTimeFormatter formatter) {
@@ -179,7 +189,7 @@ public class AdminNotificationsGui {
     }
 
     private List<Transaction> getSuspiciousTransactions() {
-        Map<String, Transaction> txMap = plugin.getLoadedTransactions();
+        Map<String, Transaction> txMap = plugin.getServices().get(Database.class).getTransactions();
         if (txMap == null) {
             return Collections.emptyList();
         }
@@ -187,7 +197,7 @@ public class AdminNotificationsGui {
         return txMap.values().stream()
                 .filter(tx -> {
                     double totalValue = tx.getPrice() * tx.getAmount();
-                    return totalValue > 100000;
+                    return totalValue > SUSPICIOUS_TRANSACTION_THRESHOLD;
                 })
                 .sorted((a, b) -> Long.compare(b.getTimestamp(), a.getTimestamp()))
                 .toList();
@@ -197,7 +207,7 @@ public class AdminNotificationsGui {
         List<SystemAlert> alerts = new ArrayList<>();
 
         // Check economic events
-        com.github.lye.events.EconomicEventManager evtMgr = plugin.getEconomicEventManager();
+        com.github.lye.events.EconomicEventManager evtMgr = plugin.getServices().get(EconomicEventManager.class);
         if (evtMgr != null && evtMgr.getActiveEvent() != null) {
             alerts.add(new SystemAlert(
                     "Événement économique en cours",
@@ -209,7 +219,7 @@ public class AdminNotificationsGui {
 
         // Check central bank balance
         double bankBalance = com.github.lye.util.EconomyUtil.getCentralBankBalance(plugin);
-        if (bankBalance < 100000) {
+        if (bankBalance < LOW_BANK_BALANCE_THRESHOLD) {
             alerts.add(new SystemAlert(
                     "Banque Centrale faible",
                     "Réserve: " + Format.currency(bankBalance),
@@ -228,7 +238,7 @@ public class AdminNotificationsGui {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 
     private static class SystemAlert {

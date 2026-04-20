@@ -5,6 +5,11 @@ import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
 import com.github.lye.config.TxtHandler;
+import com.github.lye.config.settings.IMessageSettings;
+import com.github.lye.data.Database;
+import com.github.lye.data.ShopUtil;
+import com.github.lye.service.IMessageService;
+import com.github.lye.util.TradeFlowLogger;
 
 import java.util.List;
 
@@ -25,8 +30,8 @@ public class TradeFlowImportCommand extends BaseCommand {
             return true;
         }
 
-        TxtHandler.importPrices(plugin.getDatabase(), plugin.getShopUtil(), plugin.getTradeLogger(), plugin.getDataFolder());
-        plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminPricesImported(), null);
+        TxtHandler.importPrices(plugin.getServices().get(Database.class), plugin.getServices().get(ShopUtil.class), plugin.getServices().get(TradeFlowLogger.class), plugin.getDataFolder());
+        plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, plugin.getServices().get(IMessageSettings.class).getAdminPricesImported(), null);
         return true;
     }
 

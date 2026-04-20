@@ -1,6 +1,7 @@
 package com.github.lye.bootstrap;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.concurrent.AsyncExecutor;
 import com.github.lye.gateway.AccessGateway;
 import com.github.lye.access.AccessResolver;
 import com.github.lye.access.DefaultAccessResolver;
@@ -17,17 +18,20 @@ import com.github.lye.data.*;
 import com.github.lye.database.IPlayerCollectionData;
 import com.github.lye.database.IServerCollectionData;
 import com.github.lye.error.TradeFlowExceptionHandler;
+import com.github.lye.events.ChestSellSelector;
 import com.github.lye.events.EconomicEventManager;
 import com.github.lye.events.PlayerCollectionListener;
-import com.github.lye.events.ChestSellSelector;
 import com.github.lye.events.PlayerConnectionListener;
+import com.github.lye.events.TradeFlowInventoryCheckEvent;
+import com.github.lye.gui.GuiNavigator;
+import com.github.lye.gui.NavigationHistory;
+import com.github.lye.gui.TransactionLock;
 import com.github.lye.events.RumorInteractListener;
 import com.github.lye.gameplay.ReputationManager;
 import com.github.lye.repository.ServerStateRepository;
 import com.github.lye.repository.FileServerStateRepository;
 import com.github.lye.gameplay.rumors.RumorManager;
 import com.github.lye.gmq.GmqService;
-import com.github.lye.gui.GuiNavigator;
 import com.github.lye.market.MarketTrendManager;
 import com.github.lye.market.StockManager;
 import com.github.lye.pricing.PricingManager;
@@ -107,6 +111,7 @@ public class PluginBootstrap {
         this.logger = plugin.getTradeLogger();
         this.exceptionHandler = new TradeFlowExceptionHandler(logger, plugin);
         this.serviceRegistry = new ServiceRegistry();
+        this.serviceRegistry.register(TradeFlowLogger.class, logger);
     }
 
     /**
@@ -239,7 +244,7 @@ public class PluginBootstrap {
         plugin.syncLegacyFields();
 
         // Initialize Format's message settings for legacy static message resolution
-        com.github.lye.util.Format.setMessageSettings(plugin.getMessageSettings());
+        com.github.lye.util.Format.setMessageSettings(configLoader.getMessageSettings());
 
         // 7. Events and Commands
         setupEvents();
@@ -300,7 +305,7 @@ public class PluginBootstrap {
             .register(Database.class, database)
             .register(ShopUtil.class, database.getShopUtil());
 
-        EconomyDataUtil economyDataUtil = new EconomyDataUtil(database, database.economyData);
+        EconomyDataUtil economyDataUtil = new EconomyDataUtil(database, database.getEconomyData());
         serviceRegistry.register(EconomyDataUtil.class, economyDataUtil);
     }
 
@@ -328,40 +333,38 @@ public class PluginBootstrap {
             StartupBanner.displayStep("REDIS", "Désactivé (mode standalone)");
             logger.info("Redis is disabled in config, using NoOpRedisClient");
             this.redisClient = new NoOpRedisClient();
-            return;
-        }
+        } else {
+            String host = plugin.getConfig().getString("redis.single.host",
+                          plugin.getConfig().getString("redis.host", "localhost"));
+            int port = plugin.getConfig().getInt("redis.single.port",
+                       plugin.getConfig().getInt("redis.port", 6379));
+            String password = plugin.getConfig().getString("redis.auth.password",
+                              plugin.getConfig().getString("redis.password", ""));
+            int database = plugin.getConfig().getInt("redis.auth.database",
+                       plugin.getConfig().getInt("redis.database", 0));
 
-        // Read Redis configuration - supports both flat and nested structure for compatibility
-        String host = plugin.getConfig().getString("redis.single.host",
-                      plugin.getConfig().getString("redis.host", "localhost"));
-        int port = plugin.getConfig().getInt("redis.single.port",
-                   plugin.getConfig().getInt("redis.port", 6379));
-        String password = plugin.getConfig().getString("redis.auth.password",
-                          plugin.getConfig().getString("redis.password", ""));
-        int database = plugin.getConfig().getInt("redis.auth.database",
-                   plugin.getConfig().getInt("redis.database", 0));
+            try {
+                this.redisHost = host;
+                this.redisPort = port;
+                this.redisClient = new RedissonRedisClient(host, port, password, database, true);
+                logger.info("Redis client initialized: " + host + ":" + port + " (DB: " + database + ")");
 
-        try {
-            this.redisHost = host;
-            this.redisPort = port;
-            this.redisClient = new RedissonRedisClient(host, port, password, database, true);
-            logger.info("Redis client initialized: " + host + ":" + port + " (DB: " + database + ")");
-
-            // Test connection
-            if (redisClient.isEnabled()) {
-                StartupBanner.displayStep("REDIS", "Connexion établie " + host + ":" + port);
-                logger.info("Redis connection test successful - cross-server sync enabled");
-            } else {
-                StartupBanner.displayWarning("Redis connexion failed - using NoOp");
-                logger.warning("Redis connection test failed, falling back to NoOpRedisClient");
+                if (redisClient.isEnabled()) {
+                    StartupBanner.displayStep("REDIS", "Connexion établie " + host + ":" + port);
+                    logger.info("Redis connection test successful - cross-server sync enabled");
+                } else {
+                    StartupBanner.displayWarning("Redis connexion failed - using NoOp");
+                    logger.warning("Redis connection test failed, falling back to NoOpRedisClient");
+                    this.redisClient = new NoOpRedisClient();
+                }
+            } catch (Exception e) {
+                StartupBanner.displayError("Redis initialization failed: " + e.getMessage());
+                logger.warning("Failed to initialize Redis client: " + e.getMessage());
+                logger.warning("Falling back to NoOpRedisClient - cross-server features disabled");
                 this.redisClient = new NoOpRedisClient();
             }
-        } catch (Exception e) {
-            StartupBanner.displayError("Redis initialization failed: " + e.getMessage());
-            logger.warning("Failed to initialize Redis client: " + e.getMessage());
-            logger.warning("Falling back to NoOpRedisClient - cross-server features disabled");
-            this.redisClient = new NoOpRedisClient();
         }
+        serviceRegistry.register(RedisClient.class, redisClient);
     }
 
     /**
@@ -433,7 +436,7 @@ public class PluginBootstrap {
         ShopUtil shopUtil = serviceRegistry.get(ShopUtil.class);
 
         IPurchaseValidationService purchaseValidationService = new DefaultPurchaseValidationService(
-            database, messageSettings, pluginSettings, messageService, centralBankStockManager, shopUtil, plugin
+            database, messageSettings, pluginSettings, configLoader.getPricingSettings(), messageService, centralBankStockManager, shopUtil, plugin
         );
         serviceRegistry.register(IPurchaseValidationService.class, purchaseValidationService);
 
@@ -443,15 +446,25 @@ public class PluginBootstrap {
         );
         serviceRegistry.register(ITransactionService.class, transactionService);
 
-        IInventoryService inventoryService = new DefaultInventoryService(messageSettings, messageService);
+        IInventoryService inventoryService = new DefaultInventoryService(messageSettings, messageService, plugin);
         serviceRegistry.register(IInventoryService.class, inventoryService);
 
-        PurchaseUtil purchaseUtil = new PurchaseUtil(
-            database, shopUtil, centralBankStockManager, purchaseValidationService,
-            transactionService, inventoryService, messageService, Config.get(),
-            EconomyUtil.getEconomy(), licenseManager, reputationManager, taxManager
+        // Async execution service (Java 21 virtual threads)
+        AsyncExecutor asyncExecutor = new AsyncExecutor(plugin);
+        serviceRegistry.register(AsyncExecutor.class, asyncExecutor);
+
+        TradePricingService pricingService = new TradePricingService(centralBankStockManager, licenseManager, reputationManager);
+        TradeEconomyService economyService = new TradeEconomyService(centralBankStockManager, Config.get(), EconomyUtil.getEconomy());
+
+        TradeExecutionService executionService = new TradeExecutionService(
+            plugin, asyncExecutor,
+            database, shopUtil, centralBankStockManager,
+            purchaseValidationService, transactionService, inventoryService, messageService,
+            pricingService, economyService,
+            licenseManager, reputationManager, taxManager,
+            EconomyUtil.getEconomy(), Config.get()
         );
-        serviceRegistry.register(PurchaseUtil.class, purchaseUtil);
+        serviceRegistry.register(TradeExecutionService.class, executionService);
 
         // Register pricing services
         serviceRegistry
@@ -483,9 +496,9 @@ public class PluginBootstrap {
      */
     private void setupEvents() {
         new PlayerCollectionListener(plugin, accessGateway, configResolver);
-        new ChestSellSelector(plugin, database, serviceRegistry.get(PurchaseUtil.class),
+        new ChestSellSelector(plugin, database, serviceRegistry.get(TradeExecutionService.class),
             serviceRegistry.get(IMessageService.class));
-        new PlayerConnectionListener(plugin);
+        new PlayerConnectionListener(plugin, accessGateway);
         plugin.getServer().getPluginManager().registerEvents(new RumorInteractListener(plugin), plugin);
     }
 
@@ -548,12 +561,28 @@ public class PluginBootstrap {
             clusterSyncManager.shutdown();
         }
 
+        TransactionSyncManager transactionSyncManager = serviceRegistry.get(TransactionSyncManager.class);
+        if (transactionSyncManager != null) {
+            transactionSyncManager.shutdown();
+        }
+
+        BalanceSyncManager balanceSyncManager = serviceRegistry.get(BalanceSyncManager.class);
+        if (balanceSyncManager != null) {
+            balanceSyncManager.shutdown();
+        }
+
         if (schedulerService != null) {
             schedulerService.shutdown();
         }
 
         if (pricingBootstrap != null) {
             pricingBootstrap.shutdown();
+        }
+
+        // Shut down async executor (waits for in-flight virtual thread tasks)
+        AsyncExecutor asyncExecutor = serviceRegistry.get(AsyncExecutor.class);
+        if (asyncExecutor != null) {
+            asyncExecutor.shutdown();
         }
 
         if (databaseBootstrap != null) {
@@ -563,6 +592,17 @@ public class PluginBootstrap {
         if (redisClient != null) {
             redisClient.close();
         }
+
+        TaxManager taxManager = serviceRegistry.get(TaxManager.class);
+        if (taxManager != null) {
+            taxManager.clearAll();
+        }
+
+        TransactionLock.clearAll();
+        NavigationHistory.clearAll();
+        TradeExecutionService.clearAll();
+        TradeFlowInventoryCheckEvent.clearAll();
+        ChestSellSelector.clearAll();
 
         serviceRegistry.clear();
 

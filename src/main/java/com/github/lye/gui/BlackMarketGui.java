@@ -4,6 +4,7 @@ import com.github.lye.TradeFlow;
 import com.github.lye.gameplay.rumors.BrokerReputation;
 import com.github.lye.gameplay.rumors.RumorManager;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -104,7 +105,7 @@ public class BlackMarketGui {
     }
 
     private void buildReputationDisplay(Player player) {
-        RumorManager rumorManager = plugin.getRumorManager();
+        RumorManager rumorManager = plugin.getServices().get(RumorManager.class);
         if (rumorManager == null) return;
 
         BrokerReputation reputationManager = rumorManager.getReputationManager();
@@ -241,6 +242,6 @@ public class BlackMarketGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

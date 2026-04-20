@@ -2,6 +2,7 @@ package com.github.lye.data;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.config.settings.ITaxSettings;
+import com.github.lye.data.CentralBankStockManager;
 import com.github.lye.util.EconomyUtil;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
@@ -125,7 +126,7 @@ public class TaxManager {
         }
 
         // Update internal treasury reserve (this is always done, regardless of treasury account type)
-        plugin.getCentralBankStockManager().addMoney(result.taxAmount());
+        plugin.getServices().get(CentralBankStockManager.class).addMoney(result.taxAmount());
 
         // Record the tax
         TaxRecord record = TaxRecord.create(
@@ -331,6 +332,46 @@ public class TaxManager {
             case PROGRESSIVE -> "Progressive tax (" + String.format("%.1f%%", rate * 100) + ")";
             case EXEMPT -> "Tax exempt";
         };
+    }
+
+    public double estimateTax(Player player, double amount, boolean isBuy, String shopName) {
+        return calculateTax(player, amount, isBuy, shopName).taxAmount();
+    }
+
+    public void collectTaxAsDeduction(Player player, double amount, boolean isBuy, String shopName) {
+        TaxCalculationResult result = calculateTax(player, amount, isBuy, shopName);
+
+        if (result.taxAmount() <= 0) {
+            return;
+        }
+
+        plugin.getServices().get(CentralBankStockManager.class).addMoney(result.taxAmount());
+
+        TaxRecord record = TaxRecord.create(
+            player.getUniqueId(),
+            player.getName(),
+            amount,
+            result.taxAmount(),
+            result.taxRate(),
+            result.taxType(),
+            shopName
+        );
+        taxRecords.put(record.getId(), record);
+
+        updatePlayerVolume(player.getUniqueId(), amount);
+
+        if (taxSettings.isShowTaxInfo()) {
+            player.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
+                "<gray>[Tax]</gray> <yellow>" + String.format("%.2f", result.taxAmount()) + "</yellow> <gray>(" +
+                String.format("%.1f%%", result.taxRate() * 100) + ")</gray> deducted for the Royal Treasury"
+            ));
+        }
+    }
+
+    public void clearAll() {
+        saveToDatabase();
+        taxRecords.clear();
+        playerVolumes.clear();
     }
 
     /**

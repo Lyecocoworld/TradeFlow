@@ -1,6 +1,7 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -73,14 +74,11 @@ public class HelpGui {
         // Navigation bar at bottom (row 3)
         // Back -> Main Menu, Close -> Exit
         NavigationBar.apply(gui, new NavigationBar.Config(3)
-                .onBack(() -> {
-                    new MainShopGui(plugin, new GuiNavigator(plugin), new com.github.lye.gui.state.PlayerShopState(player.getUniqueId()), plugin.getTradeLogger())
-                        .open(player);
-                })
+                .onBack(() -> plugin.getServices().get(com.github.lye.gui.GuiNavigator.class).openMain(player))
         );
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

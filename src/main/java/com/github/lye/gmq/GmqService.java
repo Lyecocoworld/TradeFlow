@@ -108,7 +108,7 @@ public class GmqService {
     public double getGlobalStock(String itemId) {
         // CentralBank is the authoritative source of truth for stock levels.
         if (centralBankStockManager != null) {
-            Shop shop = plugin.getDatabase().getShops().get(itemId);
+            Shop shop = plugin.getServices().get(com.github.lye.data.Database.class).getShops().get(itemId);
             if (shop != null) {
                 return centralBankStockManager.getCurrentStock(shop);
             }
@@ -183,7 +183,7 @@ public class GmqService {
      * systems stay aligned.
      */
     public void weeklyRestock() {
-        Map<String, Shop> shops = plugin.getDatabase().getShops();
+        Map<String, Shop> shops = plugin.getServices().get(com.github.lye.data.Database.class).getShops();
         for (GlobalMarketStats s : statsMap.values()) {
             double mu = Math.max(1e-6, s.getMu());
             double sMin = s.getMinStockFactor() * mu;
@@ -250,7 +250,7 @@ public class GmqService {
         // Use config value if no explicit time provided
         String timeStr = configTime;
         if (timeStr == null || timeStr.isBlank()) {
-            timeStr = plugin.getPluginSettings().getGmqRestockTime();
+            timeStr = plugin.getServices().get(com.github.lye.config.settings.IPluginSettings.class).getGmqRestockTime();
         }
 
         try {
@@ -261,7 +261,7 @@ public class GmqService {
                 hour = Integer.parseInt(hm[0]);
                 minute = Integer.parseInt(hm[1]);
             }
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             logger.warning("[GMQ] Invalid weekly-restock-time format, using default SUNDAY 18:00");
         }
         scheduleNextRestock(day, hour, minute);

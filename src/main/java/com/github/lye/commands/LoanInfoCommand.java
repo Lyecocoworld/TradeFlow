@@ -7,6 +7,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.config.Config;
 import com.github.lye.data.Database;
 import com.github.lye.data.Loan;
@@ -29,7 +31,7 @@ public class LoanInfoCommand extends BaseCommand {
         }
 
         Player player = (Player) sender;
-        getTotalLoans(player, plugin.getDatabase());
+        getTotalLoans(player, plugin.getServices().get(Database.class));
         return true;
     }
 
@@ -48,7 +50,7 @@ public class LoanInfoCommand extends BaseCommand {
                 }
             }
             TagResolver resolver = Placeholder.parsed("total", Format.currency(total));
-            plugin.getMessageService().sendInfoMessage(player, plugin.getMessageSettings().getLoanInfo(), resolver);
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(player, plugin.getServices().get(IMessageSettings.class).getLoanInfo(), resolver);
         } finally {
             Database.releaseReadLock();
         }

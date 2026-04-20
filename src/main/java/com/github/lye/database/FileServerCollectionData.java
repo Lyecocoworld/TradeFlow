@@ -5,9 +5,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 public class FileServerCollectionData implements IServerCollectionData {
@@ -16,12 +16,12 @@ public class FileServerCollectionData implements IServerCollectionData {
     private final File dataFile;
     private YamlConfiguration dataConfig;
 
-    private Set<String> serverCollections;
+    private final Set<String> serverCollections;
 
     public FileServerCollectionData(TradeFlow plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "server_collections.yml");
-        this.serverCollections = new HashSet<>(); // Initialize here
+        this.serverCollections = ConcurrentHashMap.newKeySet();
         loadServerCollections(); // Call to load data into the initialized set
     }
 

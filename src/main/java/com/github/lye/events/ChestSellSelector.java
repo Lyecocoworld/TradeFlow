@@ -1,7 +1,7 @@
 package com.github.lye.events;
 
 import com.github.lye.data.Database;
-import com.github.lye.data.PurchaseUtil;
+import com.github.lye.service.TradeExecutionService;
 import com.github.lye.util.Format;
 import com.github.lye.util.PerfMetrics;
 import org.bukkit.NamespacedKey;
@@ -20,10 +20,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.plugin.Plugin;
 
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.lye.service.IMessageService;
 
@@ -32,20 +32,28 @@ import com.github.lye.service.IMessageService;
  */
 public class ChestSellSelector implements Listener {
 
-    private static final Map<UUID, Selection> PENDING = new HashMap<>();
+    private static final Map<UUID, Selection> PENDING = new ConcurrentHashMap<>();
+
+    public static void remove(UUID playerId) {
+        PENDING.remove(playerId);
+    }
+
+    public static void clearAll() {
+        PENDING.clear();
+    }
 
     private final Plugin plugin;
     private final Database database;
-    private final PurchaseUtil purchaseUtil;
+    private final TradeExecutionService executionService;
     private final IMessageService messageService;
 
     // Static reference used only for the initial instruction message
     private static IMessageService sharedMessageService;
 
-    public ChestSellSelector(Plugin plugin, Database database, PurchaseUtil purchaseUtil, IMessageService messageService) {
+    public ChestSellSelector(Plugin plugin, Database database, TradeExecutionService executionService, IMessageService messageService) {
         this.plugin = plugin;
         this.database = database;
-        this.purchaseUtil = purchaseUtil;
+        this.executionService = executionService;
         this.messageService = messageService;
         sharedMessageService = messageService;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -105,7 +113,7 @@ public class ChestSellSelector implements Listener {
                 sell.setItemMeta(meta);
                 long start = System.nanoTime();
                 try {
-                    purchaseUtil.sellItemStack(sell, player);
+                    executionService.executeSellItemStack(sell, player);
                 } finally {
                     PerfMetrics.recordShopOperation(false, System.nanoTime() - start);
                 }
@@ -130,7 +138,7 @@ public class ChestSellSelector implements Listener {
                 ItemStack sell = new ItemStack(mat, removed);
                 long start = System.nanoTime();
                 try {
-                    purchaseUtil.sellItemStack(sell, player);
+                    executionService.executeSellItemStack(sell, player);
                 } finally {
                     PerfMetrics.recordShopOperation(false, System.nanoTime() - start);
                 }

@@ -39,7 +39,7 @@ public class TransactionSyncManager {
     public TransactionSyncManager(TradeFlow plugin, RedisClient redisClient) {
         this.plugin = plugin;
         this.redisClient = redisClient;
-        this.serverId = plugin.getPluginSettings().getRedisServerId();
+        this.serverId = plugin.getServices().get(com.github.lye.config.settings.IPluginSettings.class).getRedisServerId();
         this.processedTransactions = new ConcurrentHashMap<>();
 
         if (redisClient.isEnabled()) {
@@ -137,7 +137,7 @@ public class TransactionSyncManager {
             );
 
             // Add to local transaction history
-            plugin.getDatabase().transactions.put(transactionId, transaction);
+            plugin.getServices().get(com.github.lye.data.Database.class).putTransaction(transactionId, transaction);
 
             // Mark as processed
             processedTransactions.put(transactionId, System.currentTimeMillis());
@@ -206,5 +206,11 @@ public class TransactionSyncManager {
      */
     public String getStats() {
         return String.format("TransactionSync[processed=%d]", processedTransactions.size());
+    }
+
+    public void shutdown() {
+        int cleared = processedTransactions.size();
+        processedTransactions.clear();
+        LOGGER.info("TransactionSyncManager shut down — cleared " + cleared + " processed entries");
     }
 }

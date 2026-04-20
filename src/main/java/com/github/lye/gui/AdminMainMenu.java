@@ -1,7 +1,9 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -67,8 +69,9 @@ public class AdminMainMenu {
             meta.displayName(MiniMessage.miniMessage().deserialize("<gold>Administrateur: " + admin.getName() + "</gold>")
                     .decoration(TextDecoration.ITALIC, false));
 
-            double bankBalance = plugin.getCentralBankStockManager() != null
-                    ? plugin.getCentralBankStockManager().getMonetaryReserve()
+            CentralBankStockManager bankMgr = plugin.getServices().get(CentralBankStockManager.class);
+            double bankBalance = bankMgr != null
+                    ? bankMgr.getMonetaryReserve()
                     : 0;
 
             List<Component> lore = new ArrayList<>();
@@ -90,6 +93,7 @@ public class AdminMainMenu {
         );
         gui.setItem(10, new GuiItem(transactions, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openTransactions(player);
         }));
 
@@ -102,6 +106,7 @@ public class AdminMainMenu {
         );
         gui.setItem(12, new GuiItem(notifications, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openNotifications(player);
         }));
 
@@ -114,6 +119,7 @@ public class AdminMainMenu {
         );
         gui.setItem(14, new GuiItem(stats, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             new AdminServerStatsGui(plugin, navigator, player).open(player);
         }));
 
@@ -126,6 +132,7 @@ public class AdminMainMenu {
         );
         gui.setItem(16, new GuiItem(players, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openPlayers(player);
         }));
 
@@ -140,6 +147,7 @@ public class AdminMainMenu {
         );
         gui.setItem(19, new GuiItem(economy, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openEconomy(player);
         }));
 
@@ -152,6 +160,7 @@ public class AdminMainMenu {
         );
         gui.setItem(21, new GuiItem(shops, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openShops(player);
         }));
 
@@ -164,6 +173,7 @@ public class AdminMainMenu {
         );
         gui.setItem(23, new GuiItem(system, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openSystem(player);
         }));
 
@@ -176,6 +186,7 @@ public class AdminMainMenu {
         );
         gui.setItem(25, new GuiItem(organizations, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Les organisations seront bientôt disponibles.</white>"));
         }));
 
@@ -209,6 +220,6 @@ public class AdminMainMenu {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 }

@@ -7,6 +7,8 @@ import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
 import com.github.lye.config.Config;
+import com.github.lye.config.settings.IMessageSettings;
+import com.github.lye.service.IMessageService;
 import com.github.lye.util.Format;
 
 import java.util.List;
@@ -24,12 +26,12 @@ public class TradeFlowAdminHelpCommand extends BaseCommand {
         }
 
         if (args.length > 0) {
-            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
-        for (String message : plugin.getMessageSettings().getAdminHelp()) {
-            plugin.getMessageService().sendInfoMessage(sender, message, null);
+        for (String message : plugin.getServices().get(IMessageSettings.class).getAdminHelp()) {
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, message, null);
         }
         return true;
     }

@@ -1,7 +1,9 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import com.github.lye.license.License;
+import com.github.lye.license.LicenseManager;
 import com.github.lye.license.PlayerLicense;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
@@ -18,10 +20,12 @@ import java.util.List;
 public class LicenseConfirmGui {
 
     private final TradeFlow plugin;
+    private final LicenseManager licenseManager;
     private final Gui gui;
 
     public LicenseConfirmGui(TradeFlow plugin, Player player, PlayerLicense current, License newLicense) {
         this.plugin = plugin;
+        this.licenseManager = plugin.getServices().get(LicenseManager.class);
 
         this.gui = Gui.gui()
                 .rows(3)
@@ -36,7 +40,7 @@ public class LicenseConfirmGui {
     }
 
     private void buildContent(Player player, PlayerLicense current, License newLicense) {
-        License currentDef = plugin.getLicenseManager().getLicenseDefinition(current.getLicenseId());
+        License currentDef = licenseManager.getLicenseDefinition(current.getLicenseId());
         String currentName = currentDef != null ? currentDef.getName() : "Inconnue";
 
         // Info Item (Slot 13)
@@ -64,7 +68,7 @@ public class LicenseConfirmGui {
         confirm.editMeta(meta -> meta.displayName(GuiTextCache.themedComponent("<gold><b>Confirmer l'echange</b></gold>")
                 .decoration(TextDecoration.ITALIC, false)));
         gui.setItem(15, new GuiItem(confirm, event -> {
-            plugin.getLicenseManager().purchaseLicense(player, newLicense.getId());
+            licenseManager.purchaseLicense(player, newLicense.getId());
             player.closeInventory();
         }));
 
@@ -76,6 +80,6 @@ public class LicenseConfirmGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

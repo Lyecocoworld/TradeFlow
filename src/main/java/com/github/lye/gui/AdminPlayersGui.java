@@ -1,6 +1,7 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -56,6 +57,7 @@ public class AdminPlayersGui {
         );
         gui.setItem(11, new GuiItem(playerStats, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Usage: <yellow>/tfadmin player <pseudo></yellow></white>"));
         }));
@@ -69,6 +71,7 @@ public class AdminPlayersGui {
         );
         gui.setItem(13, new GuiItem(bankBalance, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Usage: <yellow>/tfadmin setbank <pseudo> <montant></yellow></white>"));
         }));
@@ -82,6 +85,7 @@ public class AdminPlayersGui {
         );
         gui.setItem(15, new GuiItem(collectionReset, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Usage: <yellow>/tfadmin resetcollection <pseudo></yellow></white>"));
         }));
@@ -97,6 +101,7 @@ public class AdminPlayersGui {
         );
         gui.setItem(20, new GuiItem(onlinePlayers, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
 
             List<? extends Player> online = plugin.getServer().getOnlinePlayers().stream().toList();
@@ -119,6 +124,7 @@ public class AdminPlayersGui {
         );
         gui.setItem(22, new GuiItem(transactions, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openTransactions(player);
         }));
 
@@ -131,6 +137,7 @@ public class AdminPlayersGui {
         );
         gui.setItem(24, new GuiItem(loans, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Utilisez <yellow>/tfadmin loans</yellow> pour voir les prêts.</white>"));
         }));
@@ -162,6 +169,6 @@ public class AdminPlayersGui {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 }

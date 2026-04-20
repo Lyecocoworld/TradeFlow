@@ -1,8 +1,8 @@
 package com.github.lye.database;
 
-import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.github.lye.TradeFlow;
+import com.github.lye.util.GsonShared;
 
 import java.lang.reflect.Type;
 import java.sql.Connection;
@@ -18,7 +18,7 @@ public class PlayerData {
 
     private final TradeFlow plugin;
     private final MySQLConnector connector;
-    private final Gson gson = new Gson();
+    private final com.google.gson.Gson gson = GsonShared.INSTANCE;
     private final Type setType = new TypeToken<Set<String>>() {}.getType();
 
     public PlayerData(TradeFlow plugin, MySQLConnector connector) {
@@ -46,8 +46,8 @@ public class PlayerData {
         String sql = "INSERT INTO player_data (player_uuid, autosell_items) VALUES (?, ?) " +
                      "ON DUPLICATE KEY UPDATE autosell_items=?;";
 
-        if (plugin.getBatchWriteOptimizer() != null) {
-            plugin.getBatchWriteOptimizer().queue(sql, playerUuid.toString(), itemsJson, itemsJson);
+        if (plugin.getBootstrap().getDatabaseBootstrap().getBatchWriteOptimizer() != null) {
+            plugin.getBootstrap().getDatabaseBootstrap().getBatchWriteOptimizer().queue(sql, playerUuid.toString(), itemsJson, itemsJson);
         } else {
             plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
                 try (Connection conn = connector.getConnection();
@@ -67,8 +67,8 @@ public class PlayerData {
         String sql = "INSERT INTO player_data (player_uuid, reputation) VALUES (?, ?) " +
                      "ON DUPLICATE KEY UPDATE reputation=?;";
 
-        if (plugin.getBatchWriteOptimizer() != null) {
-            plugin.getBatchWriteOptimizer().queue(sql, playerUuid.toString(), reputation, reputation);
+        if (plugin.getBootstrap().getDatabaseBootstrap().getBatchWriteOptimizer() != null) {
+            plugin.getBootstrap().getDatabaseBootstrap().getBatchWriteOptimizer().queue(sql, playerUuid.toString(), reputation, reputation);
         } else {
             plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
                 try (Connection conn = connector.getConnection();

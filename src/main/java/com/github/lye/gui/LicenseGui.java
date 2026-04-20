@@ -1,8 +1,11 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import com.github.lye.license.License;
+import com.github.lye.license.LicenseManager;
 import com.github.lye.license.PlayerLicense;
+import com.github.lye.service.IMessageService;
 import com.github.lye.util.Format;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
@@ -19,10 +22,12 @@ import java.util.List;
 public class LicenseGui {
 
     private final TradeFlow plugin;
+    private final LicenseManager licenseManager;
     private final Gui gui;
 
     public LicenseGui(TradeFlow plugin, Player player) {
         this.plugin = plugin;
+        this.licenseManager = plugin.getServices().get(LicenseManager.class);
 
         this.gui = Gui.gui()
                 .rows(3)
@@ -37,8 +42,8 @@ public class LicenseGui {
     }
 
     private void buildContent(Player player) {
-        List<License> licenses = plugin.getLicenseManager().getAllDefinitions();
-        PlayerLicense active = plugin.getLicenseManager().getActiveLicense(player);
+        List<License> licenses = licenseManager.getAllDefinitions();
+        PlayerLicense active = licenseManager.getActiveLicense(player);
 
         int[] slots = {11, 12, 13, 14, 15};
         int index = 0;
@@ -74,14 +79,14 @@ public class LicenseGui {
 
             gui.setItem(slots[index], new GuiItem(item, event -> {
                 if (isActive) {
-                    plugin.getMessageService().sendInfoMessage(player, "<green>Vous possedez deja cette licence.</green>", null);
+                    plugin.getServices().get(IMessageService.class).sendInfoMessage(player, "<green>Vous possedez deja cette licence.</green>", null);
                     return;
                 }
 
                 if (active != null) {
                     new LicenseConfirmGui(plugin, player, active, license).open(player);
                 } else {
-                    plugin.getLicenseManager().purchaseLicense(player, license.getId());
+                    licenseManager.purchaseLicense(player, license.getId());
                     new LicenseGui(plugin, player).open(player);
                 }
             }));
@@ -101,6 +106,6 @@ public class LicenseGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

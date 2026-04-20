@@ -35,56 +35,84 @@ public class AdminNavigator {
      * Open the main admin menu.
      */
     public void openMainMenu(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminMainMenu gui = new AdminMainMenu(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
      * Open the system management GUI (reload, recalculate, etc).
      */
     public void openSystem(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminSystemGui gui = new AdminSystemGui(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
      * Open the economy management GUI (stats, taxes, events).
      */
     public void openEconomy(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminEconomyGui gui = new AdminEconomyGui(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
      * Open the shops management GUI.
      */
     public void openShops(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminShopsGui gui = new AdminShopsGui(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
      * Open the transaction log GUI.
      */
     public void openTransactions(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminTransactionGui gui = new AdminTransactionGui(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
      * Open the notifications GUI.
      */
     public void openNotifications(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminNotificationsGui gui = new AdminNotificationsGui(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
      * Open the players management GUI.
      */
     public void openPlayers(@NotNull Player player) {
+        if (!player.hasPermission(AdminPermission.PERMISSION)) return;
         AdminPlayersGui gui = new AdminPlayersGui(plugin, this, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**

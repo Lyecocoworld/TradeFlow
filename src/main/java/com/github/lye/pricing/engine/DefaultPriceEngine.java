@@ -45,15 +45,40 @@ public class DefaultPriceEngine implements PriceEngine {
     private static final double GLOBAL_PRICE_FLOOR = 0.01;
     private static final double INFINITE_PRICE = Double.POSITIVE_INFINITY;
 
-    // Memoization for DFS
-    private Map<ItemId, Double> memoizedPrices;
-    private Map<ItemId, Breakdown> memoizedBreakdowns;
-    private Map<ItemId, Boolean> visiting;
-    private Graph currentGraph;
-    private Map<ItemId, ItemConfig> currentItemConfigs;
-    private Map<String, Shop> currentLoadedShops;
-    private com.github.lye.market.MarketTrendManager marketTrendManager;
+    private final com.github.lye.market.MarketTrendManager marketTrendManager;
     private final java.util.function.Supplier<EconomicEventManager> eventManagerSupplier;
+
+    /**
+     * Holds all mutable state for a single price calculation run.
+     * Each invocation of calculatePrices / recalculatePricesPartial creates
+     * its own context so concurrent calculations never corrupt each other.
+     */
+    private static class CalculationContext {
+        final Map<ItemId, Double> memoizedPrices;
+        final Map<ItemId, Breakdown> memoizedBreakdowns;
+        final Map<ItemId, Boolean> visiting;
+        final Graph graph;
+        final Map<ItemId, ItemConfig> itemConfigs;
+        final Map<String, Shop> loadedShops;
+        final PriceSnapshot prevSnapshot;
+
+        CalculationContext(
+                Map<ItemId, Double> memoizedPrices,
+                Map<ItemId, Breakdown> memoizedBreakdowns,
+                Map<ItemId, Boolean> visiting,
+                Graph graph,
+                Map<ItemId, ItemConfig> itemConfigs,
+                Map<String, Shop> loadedShops,
+                PriceSnapshot prevSnapshot) {
+            this.memoizedPrices = memoizedPrices;
+            this.memoizedBreakdowns = memoizedBreakdowns;
+            this.visiting = visiting;
+            this.graph = graph;
+            this.itemConfigs = itemConfigs;
+            this.loadedShops = loadedShops;
+            this.prevSnapshot = prevSnapshot;
+        }
+    }
 
     public DefaultPriceEngine(AuditService auditService, PricingParams pricingParams, CentralBankStockManager centralBankStockManager, IPluginSettings pluginSettings, com.github.lye.market.MarketTrendManager marketTrendManager, java.util.function.Supplier<EconomicEventManager> eventManagerSupplier) {
         this.auditService = auditService;
@@ -75,39 +100,41 @@ public class DefaultPriceEngine implements PriceEngine {
     @Override
     public CompletableFuture<PriceSnapshot> calculatePrices(Map<ItemId, ItemConfig> itemConfigs, List<Recipe> recipes, Map<String, Shop> loadedShops) {
         return CompletableFuture.supplyAsync(() -> {
-            this.memoizedPrices = new HashMap<>();
-            this.memoizedBreakdowns = new HashMap<>();
-            this.visiting = new HashMap<>();
-            this.currentItemConfigs = itemConfigs;
-            this.currentLoadedShops = loadedShops;
-
-            this.currentGraph = Graph.from(recipes);
+            CalculationContext ctx = new CalculationContext(
+                new HashMap<>(),
+                new HashMap<>(),
+                new HashMap<>(),
+                Graph.from(recipes),
+                itemConfigs,
+                loadedShops,
+                this.currentPriceSnapshot
+            );
 
             // Process items from recipes first
-            for (ItemId item : currentGraph.getNodes()) {
-                priceOf(item);
+            for (ItemId item : ctx.graph.getNodes()) {
+                priceOf(item, ctx);
             }
 
             // CRITICAL FIX: Also process all items defined in itemConfigs (Shops)
             // This ensures raw items without recipes (like diamonds) get dynamic pricing.
             for (ItemId item : itemConfigs.keySet()) {
-                if (!memoizedPrices.containsKey(item)) {
-                    priceOf(item);
+                if (!ctx.memoizedPrices.containsKey(item)) {
+                    priceOf(item, ctx);
                 }
             }
 
             // Final fallback for anything still missing
             for (ItemId item : itemConfigs.keySet()) {
-                if (!memoizedPrices.containsKey(item)) {
-                    memoizedPrices.put(item, INFINITE_PRICE);
-                    memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
+                if (!ctx.memoizedPrices.containsKey(item)) {
+                    ctx.memoizedPrices.put(item, INFINITE_PRICE);
+                    ctx.memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
                 }
             }
 
             // --- Apply EMBARGO post-processing (avoids cascading zero-prices into recipe costs) ---
-            applyEmbargoPostProcess(memoizedPrices);
+            applyEmbargoPostProcess(ctx.memoizedPrices);
 
-            PriceSnapshot newSnapshot = new PriceSnapshot(memoizedPrices, memoizedBreakdowns);
+            PriceSnapshot newSnapshot = new PriceSnapshot(ctx.memoizedPrices, ctx.memoizedBreakdowns);
             this.currentPriceSnapshot = newSnapshot;
             return newSnapshot;
         });
@@ -192,22 +219,22 @@ public class DefaultPriceEngine implements PriceEngine {
         }
     }
 
-    private double priceOf(ItemId item) {
-        return priceOf(item, 0);
+    private double priceOf(ItemId item, CalculationContext ctx) {
+        return priceOf(item, 0, ctx);
     }
 
-    private double priceOf(ItemId item, int depth) {
-        if (memoizedPrices.containsKey(item)) {
-            return memoizedPrices.get(item);
+    private double priceOf(ItemId item, int depth, CalculationContext ctx) {
+        if (ctx.memoizedPrices.containsKey(item)) {
+            return ctx.memoizedPrices.get(item);
         }
-        if (visiting.getOrDefault(item, false)) {
+        if (ctx.visiting.getOrDefault(item, false)) {
             auditService.logWarning("Cycle detected during price calculation for: " + item.getFullId() + ". Returning INFINITE_PRICE.");
             return INFINITE_PRICE;
         }
 
-        visiting.put(item, true);
+        ctx.visiting.put(item, true);
 
-        ItemConfig config = currentItemConfigs.get(item);
+        ItemConfig config = ctx.itemConfigs.get(item);
         if (config != null && config.getPrice().isPresent()) {
             double anchorPrice = config.getPrice().get();
             if (anchorPrice <= 0 && !config.isFree()) {
@@ -218,8 +245,8 @@ public class DefaultPriceEngine implements PriceEngine {
                 // --- Central Bank Sigmoid Pricing ---
                 boolean dynamicEnabled = pluginSettings != null && pluginSettings.isEnableDynamicPricing();
 
-                if (dynamicEnabled && centralBankStockManager != null && currentLoadedShops != null) {
-                    Shop shop = currentLoadedShops.get(item.getKey());
+                if (dynamicEnabled && centralBankStockManager != null && ctx.loadedShops != null) {
+                    Shop shop = ctx.loadedShops.get(item.getKey());
                     if (shop != null) {
                         int currentStock = centralBankStockManager.getCurrentStock(shop);
                         int idealStock = centralBankStockManager.getIdealStock(shop);
@@ -239,8 +266,8 @@ public class DefaultPriceEngine implements PriceEngine {
                 }
 
                 // Apply Market Trends
-                if (marketTrendManager != null && currentLoadedShops != null) {
-                    Shop shop = currentLoadedShops.get(item.getKey());
+                if (marketTrendManager != null && ctx.loadedShops != null) {
+                    Shop shop = ctx.loadedShops.get(item.getKey());
                     if (shop != null) {
                         double trend = marketTrendManager.getTrend(shop.getSection(), item.getKey());
                         finalPrice *= trend;
@@ -250,9 +277,9 @@ public class DefaultPriceEngine implements PriceEngine {
                 // --- Apply Economic Event PRICE_MULTIPLIER ---
                 finalPrice *= getEventPriceMultiplier(item.getKey());
 
-                memoizedPrices.put(item, finalPrice);
-                memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.SHOP, finalPrice, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, finalPrice, Collections.emptyMap(), 0, 0, 0, 0, 0)));
-                visiting.put(item, false);
+                ctx.memoizedPrices.put(item, finalPrice);
+                ctx.memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.SHOP, finalPrice, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, finalPrice, Collections.emptyMap(), 0, 0, 0, 0, 0)));
+                ctx.visiting.put(item, false);
                 return finalPrice;
             }
         }
@@ -261,29 +288,29 @@ public class DefaultPriceEngine implements PriceEngine {
         double minCost = INFINITE_PRICE;
         Breakdown bestBreakdown = null;
 
-        List<Recipe> recipesForOutput = currentGraph.getRecipesByOutput(item);
+        List<Recipe> recipesForOutput = ctx.graph.getRecipesByOutput(item);
         if (recipesForOutput.isEmpty()) {
-            memoizedPrices.put(item, INFINITE_PRICE);
-            memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
-            visiting.put(item, false);
+            ctx.memoizedPrices.put(item, INFINITE_PRICE);
+            ctx.memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
+            ctx.visiting.put(item, false);
             return INFINITE_PRICE;
         }
 
         for (Recipe recipe : recipesForOutput) {
-            double cost = costForRecipe(recipe, depth);
+            double cost = costForRecipe(recipe, depth, ctx);
             if (cost < minCost) {
                 minCost = cost;
                 Map<ItemId, Double> inputs = new HashMap<>();
                 for (Map.Entry<ItemId, Double> ingredient : recipe.getIngredients().entrySet()) {
                     ItemId ingredientId = ingredient.getKey();
-                    inputs.put(ingredientId, memoizedPrices.getOrDefault(ingredientId, INFINITE_PRICE));
+                    inputs.put(ingredientId, ctx.memoizedPrices.getOrDefault(ingredientId, INFINITE_PRICE));
                 }
 
                 double energy = recipe.getFuelCost()
                         + pricingParams.getMachineTimeCostPerSecond() * recipe.getSeconds()
                         + pricingParams.getToolWearCostFn().applyAsDouble(recipe.getOutputItem());
 
-                PricingLocal local = currentItemConfigs.getOrDefault(recipe.getOutputItem(), new ItemConfig(recipe.getOutputItem(), null, null, null, null, false, PricingLocal.EMPTY)).getPricingLocal();
+                PricingLocal local = ctx.itemConfigs.getOrDefault(recipe.getOutputItem(), new ItemConfig(recipe.getOutputItem(), null, null, null, null, false, PricingLocal.EMPTY)).getPricingLocal();
 
                 bestBreakdown = new Breakdown(item, Breakdown.SourceType.AUTO, minCost, inputs,
                         energy, local.getMargin() != null ? local.getMargin() : pricingParams.getDefaultMargin(),
@@ -298,23 +325,23 @@ public class DefaultPriceEngine implements PriceEngine {
         }
 
         if (minCost == INFINITE_PRICE) {
-            memoizedPrices.put(item, INFINITE_PRICE);
-            memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
+            ctx.memoizedPrices.put(item, INFINITE_PRICE);
+            ctx.memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
         } else {
             // --- Apply Economic Event PRICE_MULTIPLIER ---
             minCost *= getEventPriceMultiplier(item.getKey());
-            memoizedPrices.put(item, minCost);
-            memoizedBreakdowns.put(item, bestBreakdown);
+            ctx.memoizedPrices.put(item, minCost);
+            ctx.memoizedBreakdowns.put(item, bestBreakdown);
         }
 
-        visiting.put(item, false);
-        return memoizedPrices.get(item);
+        ctx.visiting.put(item, false);
+        return ctx.memoizedPrices.get(item);
     }
 
-    private double costForRecipe(Recipe r, int depth) {
+    private double costForRecipe(Recipe r, int depth, CalculationContext ctx) {
         double raw = 0.0;
         for (Map.Entry<ItemId, Double> in : r.getIngredients().entrySet()) {
-            double p = priceOf(in.getKey(), depth + 1);
+            double p = priceOf(in.getKey(), depth + 1, ctx);
             if (Double.isInfinite(p)) return Double.POSITIVE_INFINITY;
             raw += p * in.getValue();
         }
@@ -326,8 +353,8 @@ public class DefaultPriceEngine implements PriceEngine {
         double unitBase = (raw + energy) / outQty;
         if (unitBase < 0) unitBase = 0;
 
-        PricingLocal local = currentItemConfigs.getOrDefault(r.getOutputItem(), new ItemConfig(r.getOutputItem(), null, null, null, null, false, PricingLocal.EMPTY)).getPricingLocal();
-        Double prev = currentPriceSnapshot.getPrice(r.getOutputItem()).orElse(null);
+        PricingLocal local = ctx.itemConfigs.getOrDefault(r.getOutputItem(), new ItemConfig(r.getOutputItem(), null, null, null, null, false, PricingLocal.EMPTY)).getPricingLocal();
+        Double prev = ctx.prevSnapshot.getPrice(r.getOutputItem()).orElse(null);
         return applyMarginTaxClamp(r.getOutputItem(), unitBase, local, pricingParams, prev);
     }
 
@@ -388,11 +415,15 @@ public class DefaultPriceEngine implements PriceEngine {
     @Override
     public CompletableFuture<PriceSnapshot> recalculatePricesPartial(ItemId changedItemId, Map<ItemId, ItemConfig> itemConfigs, List<Recipe> recipes, PriceSnapshot currentSnapshot) {
         return CompletableFuture.supplyAsync(() -> {
-            this.memoizedPrices = new HashMap<>(currentSnapshot.getPrices());
-            this.memoizedBreakdowns = new HashMap<>(currentSnapshot.getBreakdowns());
-            this.visiting = new HashMap<>();
-            this.currentItemConfigs = itemConfigs;
-            this.currentGraph = Graph.from(recipes);
+            CalculationContext ctx = new CalculationContext(
+                new HashMap<>(currentSnapshot.getPrices()),
+                new HashMap<>(currentSnapshot.getBreakdowns()),
+                new HashMap<>(),
+                Graph.from(recipes),
+                itemConfigs,
+                null,
+                currentSnapshot
+            );
 
             Set<ItemId> affectedItems = new HashSet<>();
             Queue<ItemId> queue = new LinkedList<>();
@@ -402,7 +433,7 @@ public class DefaultPriceEngine implements PriceEngine {
 
             while (!queue.isEmpty()) {
                 ItemId current = queue.poll();
-                for (ItemId dependent : currentGraph.getDependencies(current)) {
+                for (ItemId dependent : ctx.graph.getDependencies(current)) {
                     if (affectedItems.add(dependent)) {
                         queue.add(dependent);
                     }
@@ -410,25 +441,25 @@ public class DefaultPriceEngine implements PriceEngine {
             }
 
             for (ItemId item : affectedItems) {
-                memoizedPrices.remove(item);
-                memoizedBreakdowns.remove(item);
+                ctx.memoizedPrices.remove(item);
+                ctx.memoizedBreakdowns.remove(item);
             }
 
             for (ItemId item : affectedItems) {
-                priceOf(item);
+                priceOf(item, ctx);
             }
 
             for (ItemId item : itemConfigs.keySet()) {
-                if (!memoizedPrices.containsKey(item)) {
-                    memoizedPrices.put(item, INFINITE_PRICE);
-                    memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
+                if (!ctx.memoizedPrices.containsKey(item)) {
+                    ctx.memoizedPrices.put(item, INFINITE_PRICE);
+                    ctx.memoizedBreakdowns.put(item, new Breakdown(item, Breakdown.SourceType.AUTO, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0, calculateStableHash(item, INFINITE_PRICE, Collections.emptyMap(), 0, 0, 0, 0, 0)));
                 }
             }
 
             // --- Apply EMBARGO post-processing (avoids cascading zero-prices into recipe costs) ---
-            applyEmbargoPostProcess(memoizedPrices);
+            applyEmbargoPostProcess(ctx.memoizedPrices);
 
-            PriceSnapshot newSnapshot = new PriceSnapshot(memoizedPrices, memoizedBreakdowns);
+            PriceSnapshot newSnapshot = new PriceSnapshot(ctx.memoizedPrices, ctx.memoizedBreakdowns);
             this.currentPriceSnapshot = newSnapshot;
             return newSnapshot;
         });

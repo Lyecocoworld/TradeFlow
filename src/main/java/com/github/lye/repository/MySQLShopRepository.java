@@ -1,9 +1,11 @@
 package com.github.lye.repository;
 
-import com.google.gson.Gson;
 import com.github.lye.TradeFlow;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.config.settings.IPricingSettings;
 import com.github.lye.data.Shop;
 import com.github.lye.database.MySQLConnector;
+import com.github.lye.util.GsonShared;
 import com.github.lye.util.TradeFlowLogger;
 
 import java.sql.Connection;
@@ -25,17 +27,21 @@ import java.util.Objects;
  */
 public class MySQLShopRepository implements ShopRepository {
 
-    private final TradeFlow plugin; // Keep for now as it's used for logger and settings
+    private final TradeFlow plugin;
     private final MySQLConnector connector;
-    private final Gson gson = new Gson();
+    private final com.google.gson.Gson gson = GsonShared.INSTANCE;
     private final TradeFlowLogger logger;
     private final com.github.lye.database.BatchWriteOptimizer batchOptimizer;
+    private final IPricingSettings pricingSettings;
+    private final IPluginSettings pluginSettings;
 
     public MySQLShopRepository(TradeFlow plugin, MySQLConnector connector, TradeFlowLogger logger, com.github.lye.database.BatchWriteOptimizer batchOptimizer) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.connector = Objects.requireNonNull(connector, "connector");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.batchOptimizer = batchOptimizer;
+        this.pricingSettings = plugin.getServices().get(IPricingSettings.class);
+        this.pluginSettings = plugin.getServices().get(IPluginSettings.class);
         initSchema();
     }
 
@@ -89,13 +95,12 @@ public class MySQLShopRepository implements ShopRepository {
             ps.setString(1, id.toLowerCase(Locale.ROOT));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    // Reconstruct Shop object
                     return new Shop(
                             id.toLowerCase(Locale.ROOT), // Ensure ID is normalized
                             rs,
                             gson,
-                            plugin.getPricingSettings(),
-                            plugin.getPluginSettings(),
+                            pricingSettings,
+                            pluginSettings,
                             logger
                     );
                 }
@@ -209,13 +214,12 @@ public class MySQLShopRepository implements ShopRepository {
                 }
                 norm = norm.toLowerCase(Locale.ROOT);
 
-                // Normalize the in-memory key and the Shop's name to the normalized id
                 Shop shop = new Shop(
                         norm,
                         rs,
                         gson,
-                        plugin.getPricingSettings(),
-                        plugin.getPluginSettings(),
+                        pricingSettings,
+                        pluginSettings,
                         logger
                 );
                 target.put(norm, shop);

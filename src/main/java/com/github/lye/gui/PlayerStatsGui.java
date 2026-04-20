@@ -1,8 +1,12 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.Database;
 import com.github.lye.license.License;
+import com.github.lye.license.LicenseManager;
 import com.github.lye.license.PlayerLicense;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
+import com.github.lye.util.EconomyUtil;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -40,14 +44,15 @@ public class PlayerStatsGui {
     }
 
     private void buildContent(Player player) {
-        double balance = plugin.getEconomy() != null ? plugin.getEconomy().getBalance(player) : 0.0;
-        PlayerLicense active = plugin.getLicenseManager() != null ? plugin.getLicenseManager().getActiveLicense(player) : null;
-        License activeDef = active != null && plugin.getLicenseManager() != null
-                ? plugin.getLicenseManager().getLicenseDefinition(active.getLicenseId())
+        double balance = EconomyUtil.getEconomy() != null ? EconomyUtil.getEconomy().getBalance(player) : 0.0;
+        LicenseManager licenseMgr = plugin.getServices().get(LicenseManager.class);
+        PlayerLicense active = licenseMgr != null ? licenseMgr.getActiveLicense(player) : null;
+        License activeDef = active != null && licenseMgr != null
+                ? licenseMgr.getLicenseDefinition(active.getLicenseId())
                 : null;
         long now = System.currentTimeMillis();
 
-        Map<String, com.github.lye.data.Transaction> tx = plugin.getLoadedTransactions();
+        Map<String, com.github.lye.data.Transaction> tx = plugin.getServices().get(Database.class).getTransactions();
         int totalTx = 0;
         int buys = 0;
         int sells = 0;
@@ -138,6 +143,6 @@ public class PlayerStatsGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

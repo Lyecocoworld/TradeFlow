@@ -2,11 +2,11 @@ package com.github.lye.events;
 
 import com.github.lye.data.Database;
 
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Bukkit;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -27,7 +27,16 @@ import com.github.lye.service.IMessageService;
  */
 public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
 
-    public static Map<UUID, List<String>> autosellItemMaxReached = new HashMap<>();
+    public static Map<UUID, List<String>> autosellItemMaxReached = new ConcurrentHashMap<>();
+
+    public static void remove(UUID playerId) {
+        autosellItemMaxReached.remove(playerId);
+    }
+
+    public static void clearAll() {
+        autosellItemMaxReached.clear();
+    }
+
     private final Database database;
     private final ShopUtil shopUtil;
     private final IMessageService messageService;
@@ -106,20 +115,10 @@ public class TradeFlowInventoryCheckEvent extends TradeFlowEvent {
         }
 
         if (shopUtil.getSellsLeft(player, name) - item.getAmount() < 0) {
-            if (!autosellItemMaxReached.containsKey(uuid)) {
-                List<String> list = autosellItemMaxReached.get(uuid);
-                if (list == null) {
-                    list = Arrays.asList(name);
-                    autosellItemMaxReached.put(uuid, list);
-                } else {
-                    list.add(name);
-                }
-            } else {
-                List<String> list = autosellItemMaxReached.get(uuid);
-                if (!list.contains(name)) {
-                    list.add(name);
-                    messageService.sendInfoMessage(player, messageSettings.getRunOutOfSells(), null);
-                }
+            List<String> list = autosellItemMaxReached.computeIfAbsent(uuid, k -> new ArrayList<>());
+            if (!list.contains(name)) {
+                list.add(name);
+                messageService.sendInfoMessage(player, messageSettings.getRunOutOfSells(), null);
             }
             return;
         }

@@ -2,14 +2,13 @@ package com.github.lye.pricing;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.cache.CaffeineCache;
+import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
 import com.github.lye.redis.DistributedLock;
 import com.github.lye.redis.RedisClient;
 import com.github.lye.redis.messages.BinaryMessage;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.github.lye.util.GsonShared;
 
-import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,8 +47,8 @@ public class DeltaPriceManager {
         this.priceCache = CaffeineCache.<String, PriceEntry>builder()
                 .redisClient(redisClient)
                 .cachePrefix("tf:price:")
-                .valueSerializer(entry -> new Gson().toJson(entry))
-                .valueDeserializer(json -> new Gson().fromJson(json, PriceEntry.class))
+                .valueSerializer(entry -> GsonShared.INSTANCE.toJson(entry))
+                .valueDeserializer(json -> GsonShared.INSTANCE.fromJson(json, PriceEntry.class))
                 .localTtlMillis(10000) // 10 seconds
                 .redisTtlMillis(60000) // 1 minute
                 .maximumSize(500)
@@ -198,33 +197,37 @@ public class DeltaPriceManager {
      * update the same price simultaneously.</p>
      */
     private void applyPriceUpdate(String itemKey, double newPrice, long version, String format) {
-        // Use distributed lock to prevent race conditions
         String lockKey = "tradeflow:price:update:" + itemKey;
-        try (DistributedLock lock = new DistributedLock(redisClient, lockKey, 5000)) {
-            if (!lock.tryLock(1000)) {
-                LOGGER.warning("Could not acquire lock for price update: " + itemKey + " - another server is updating");
-                return;
-            }
+        DistributedLock lock = new DistributedLock(redisClient, lockKey, 5000);
+        lock.tryLockAsync(1000, plugin).thenAccept(acquired -> {
+            try {
+                if (!acquired) {
+                    LOGGER.warning("Could not acquire lock for price update: " + itemKey + " - another server is updating");
+                    return;
+                }
 
-            // Check version (with lock held)
-            long currentVersion = getCurrentVersion(itemKey);
-            if (version <= currentVersion) {
-                LOGGER.fine("Ignoring stale price update: " + itemKey + " v" + version + " <= v" + currentVersion);
-                return; // Ignore stale update
-            }
+                long currentVersion = getCurrentVersion(itemKey);
+                if (version <= currentVersion) {
+                    LOGGER.fine("Ignoring stale price update: " + itemKey + " v" + version + " <= v" + currentVersion);
+                    return;
+                }
 
-            // Apply update (still under lock)
-            Map<String, Shop> shops = plugin.getLoadedShops();
-            Shop shop = shops.get(itemKey);
-            if (shop != null) {
-                shop.setPrice(newPrice);
-                localVersions.put(itemKey, new AtomicLong(version));
-                priceCache.put(itemKey, new PriceEntry(itemKey, newPrice, version, System.currentTimeMillis()));
-                LOGGER.info("Applied price delta from remote (" + format + "): " + itemKey + " = " + newPrice + " v" + version);
+                Map<String, Shop> shops = plugin.getServices().get(Database.class).getShops();
+                Shop shop = shops.get(itemKey);
+                if (shop != null) {
+                    shop.setPrice(newPrice);
+                    localVersions.put(itemKey, new AtomicLong(version));
+                    priceCache.put(itemKey, new PriceEntry(itemKey, newPrice, version, System.currentTimeMillis()));
+                    LOGGER.info("Applied price delta from remote (" + format + "): " + itemKey + " = " + newPrice + " v" + version);
+                }
+            } finally {
+                lock.unlock();
             }
-        } catch (Exception e) {
-            LOGGER.warning("Error applying price update for " + itemKey + ": " + e.getMessage());
-        }
+        }).exceptionally(ex -> {
+            LOGGER.warning("Error applying price update for " + itemKey + ": " + ex.getMessage());
+            lock.unlock();
+            return null;
+        });
     }
 
     /**

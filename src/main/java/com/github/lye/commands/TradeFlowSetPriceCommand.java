@@ -10,8 +10,10 @@ import com.github.lye.config.Config;
 import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.util.Format;
-import com.github.lye.util.arguments.ArgumentParser; // Import ArgumentParser
+import com.github.lye.util.arguments.ArgumentParser;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,37 +37,40 @@ public class TradeFlowSetPriceCommand extends BaseCommand implements CommandExec
         }
 
         if (args.length != 2) {
-            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
         String shopName = args[0];
         
-        Optional<Double> priceOptional = ArgumentParser.getDouble(sender, plugin.getMessageService(), args[1], plugin.getMessageSettings().getAdminInvalidPrice());
+        IMessageService messageService = plugin.getServices().get(IMessageService.class);
+        IMessageSettings messageSettings = plugin.getServices().get(IMessageSettings.class);
+
+        Optional<Double> priceOptional = ArgumentParser.getDouble(sender, messageService, args[1], messageSettings.getAdminInvalidPrice());
         if (priceOptional.isEmpty()) {
             return true;
         }
         double price = priceOptional.get();
 
         if (price < 0) {
-            plugin.getMessageService().sendErrorMessage(sender, plugin.getMessageSettings().getAdminInvalidPrice(), null);
+            messageService.sendErrorMessage(sender, messageSettings.getAdminInvalidPrice(), null);
             return true;
         }
 
         Database.acquireWriteLock();
         try {
-            Optional<Shop> shopOptional = ArgumentParser.getShop(plugin.getShopUtil(), plugin.getMessageSettings(), sender, plugin.getMessageService(), shopName);
+            Optional<Shop> shopOptional = ArgumentParser.getShop(plugin.getServices().get(ShopUtil.class), messageSettings, sender, messageService, shopName);
             if (shopOptional.isEmpty()) {
                 return true;
             }
             Shop shop = shopOptional.get();
 
             shop.setPrice(price);
-            plugin.getShopUtil().putShop(shopName, shop);
-            plugin.recalculatePrices(); // ✅ recalcul des prix publiés dans le PriceService
+            plugin.getServices().get(ShopUtil.class).putShop(shopName, shop);
+            plugin.recalculatePrices();
             TagResolver resolver = Placeholder.parsed("price", Format.currency(price));
-            plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminPriceSet(), resolver);
-            plugin.getMessageService().sendInfoMessage(sender, "§aPrices recalculation requested.", null);
+            messageService.sendInfoMessage(sender, messageSettings.getAdminPriceSet(), resolver);
+            Format.sendRawMessage(sender, "<green>Prices recalculation requested.");
         } finally {
             Database.releaseWriteLock();
         }
@@ -75,7 +80,7 @@ public class TradeFlowSetPriceCommand extends BaseCommand implements CommandExec
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length == 1) {
-            return Arrays.stream(plugin.getShopUtil().getShopNames())
+            return Arrays.stream(plugin.getServices().get(ShopUtil.class).getShopNames())
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         } else if (args.length == 2) {
@@ -92,7 +97,7 @@ public class TradeFlowSetPriceCommand extends BaseCommand implements CommandExec
             return true;
         }
         if (!p.hasPermission("tradeflow.admin")) {
-            p.sendMessage("§cYou don't have permission.");
+            Format.sendRawMessage(p, "<red>You don't have permission.");
             return true;
         }
 

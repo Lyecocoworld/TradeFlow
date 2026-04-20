@@ -2,10 +2,18 @@ package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.config.Config;
+import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
+import com.github.lye.data.ShopUtil;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.service.TradeExecutionService;
 import com.github.lye.events.ChestSellSelector;
 import com.github.lye.gui.state.PlayerShopState;
+import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -153,12 +161,11 @@ public class PurchaseGui {
             return;
         }
 
-        Shop shop = plugin.getShopUtil().getShop(shopName, true);
+        Shop shop = plugin.getServices().get(ShopUtil.class).getShop(shopName, true);
         double unitPrice = (shop != null) ? shop.getPrice() : 0.0;
         int amount = state.getAmount();
         double totalPrice = unitPrice * amount;
 
-        // Create a gold ingot displaying price info
         ItemStack priceDisplay = new ItemStack(Material.GOLD_INGOT);
         priceDisplay.editMeta(meta -> {
             // Title: Total price in gold/bold
@@ -192,7 +199,7 @@ public class PurchaseGui {
         buildAmountButtons();
         buildPriceDisplayButton(); // Also update price display
         buildBuySellButtons();
-        gui.update();
+        TriumphGuiAdapter.updateSafe(gui, viewer, plugin);
     }
 
     private void buildBuySellButtons() {
@@ -206,18 +213,18 @@ public class PurchaseGui {
         ItemStack buyBtn = new ItemStack(Material.EMERALD);
         List<Component> buyLore = new ArrayList<>();
 
-        Shop shop = plugin.getShopUtil().getShop(shopName, true);
+        Shop shop = plugin.getServices().get(ShopUtil.class).getShop(shopName, true);
         double unitPrice = (shop != null) ? shop.getPrice() : 0.0;
 
         int buysLeft = 0;
         String buysLeftStr = "0";
         if (shop != null) {
             int maxBuys = shop.getMaxBuys();
-            buysLeft = plugin.getShopUtil().getBuysLeft(viewer, shopName);
+            buysLeft = plugin.getServices().get(ShopUtil.class).getBuysLeft(viewer, shopName);
             buysLeftStr = (maxBuys < 0 ? "∞" : Format.compactNumber(buysLeft));
         }
 
-        for (String line : plugin.getMessageSettings().getPurchaseBuyLore()) {
+        for (String line : plugin.getServices().get(IMessageSettings.class).getPurchaseBuyLore()) {
             TagResolver resolver = TagResolver.resolver(
                     Placeholder.parsed("price", Format.currency(unitPrice)),
                     Placeholder.parsed("total-price", Format.currency(unitPrice * amount)),
@@ -236,22 +243,29 @@ public class PurchaseGui {
 
         gui.setItem(BUY_BUTTON_SLOT, new GuiItem(buyBtn, event -> {
             Player player = (Player) event.getWhoClicked();
-            int amt = state.getAmount();
-
-            Shop s = plugin.getShopUtil().getShop(shopName, true);
-            double price = (s != null) ? s.getPrice() : 0.0;
-
-            if (plugin.getPluginSettings().isEnableSellLimits()) {
-                int left = plugin.getDatabase().getPurchasesLeft(shopName, player.getUniqueId(), true);
-                if (left - amt < 0) {
-                    TagResolver rr = plugin.getPurchaseUtil().getTagResolver(
-                            Component.text(shopName), price, amt,
-                            plugin.getEconomy().getBalance(player));
-                    plugin.getMessageService().sendErrorMessage(player, plugin.getMessageSettings().getRunOutOfBuys(), rr);
-                    return;
-                }
+            if (!TransactionLock.tryAcquire(player.getUniqueId())) {
+                return; // Already processing a purchase — debounce
             }
-            plugin.getPurchaseUtil().purchaseItem(shopName, player, amt, true);
+            try {
+                int amt = state.getAmount();
+
+                Shop s = plugin.getServices().get(ShopUtil.class).getShop(shopName, true);
+                double price = (s != null) ? s.getPrice() : 0.0;
+
+                if (plugin.getServices().get(IPluginSettings.class).isEnableSellLimits()) {
+                    int left = plugin.getServices().get(Database.class).getPurchasesLeft(shopName, player.getUniqueId(), true);
+                    if (left - amt < 0) {
+                        TagResolver rr = plugin.getServices().get(TradeExecutionService.class).getTagResolver(
+                                Component.text(shopName), price, amt,
+                                EconomyUtil.getEconomy().getBalance(player));
+                        plugin.getServices().get(IMessageService.class).sendErrorMessage(player, plugin.getServices().get(IMessageSettings.class).getRunOutOfBuys(), rr);
+                        return;
+                    }
+                }
+                plugin.getServices().get(TradeExecutionService.class).executePurchase(shopName, player, amt, true);
+            } finally {
+                TransactionLock.release(player.getUniqueId());
+            }
         }));
 
         // SELL FROM CHEST BUTTON
@@ -287,6 +301,6 @@ public class PurchaseGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

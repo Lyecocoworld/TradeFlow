@@ -77,7 +77,8 @@ public class PricingBootstrapService {
      * Initializes the pricing system.
      */
     public void initialize() {
-        plugin.getTradeLogger().config("Initializing pricing system...");
+        com.github.lye.util.TradeFlowLogger tfLogger = plugin.getServices().getTradeFlowLogger();
+        tfLogger.config("Initializing pricing system...");
 
         // Create audit service
         AuditService auditService = new DefaultAuditService(plugin.getLogger());
@@ -98,7 +99,7 @@ public class PricingBootstrapService {
             priceService,
             centralBankStockManager,
             pluginSettings,
-            plugin.getMarketTrendManager(),
+            plugin.getServices().get(com.github.lye.market.MarketTrendManager.class),
             plugin::getEconomicEventManager
         );
         this.pricingManager.setOnCompleteCallback(this::handlePriceUpdate);
@@ -109,7 +110,7 @@ public class PricingBootstrapService {
             FamiliesConfigLoader.loadFamilies(Config.getFamiliesModule())
         );
 
-        plugin.getTradeLogger().config("Pricing system initialized");
+        tfLogger.config("Pricing system initialized");
     }
 
     /**
@@ -151,7 +152,7 @@ public class PricingBootstrapService {
         });
 
         // Publish to Redis if enabled
-        com.github.lye.redis.RedisClient redisClient = plugin.getRedisClient();
+        com.github.lye.redis.RedisClient redisClient = plugin.getServices().getRedisClient();
         if (redisClient != null && redisClient.isEnabled() && !validPrices.isEmpty()) {
             try {
                 validPrices.forEach((key, price) ->
@@ -162,7 +163,7 @@ public class PricingBootstrapService {
                     new com.github.lye.redis.messages.BulkPriceUpdateMessage(validPrices);
                 redisClient.publish("tradeflow:price-updates-bulk", mapper.writeValueAsString(msg));
             } catch (Exception e) {
-                plugin.getTradeLogger().warning("Failed to publish price updates to Redis: " + e.getMessage());
+        plugin.getServices().getTradeFlowLogger().warning("Failed to publish price updates to Redis: " + e.getMessage());
             }
         }
     }

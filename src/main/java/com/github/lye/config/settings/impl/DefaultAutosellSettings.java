@@ -38,7 +38,6 @@ public class DefaultAutosellSettings implements IAutosellSettings {
             playerdataYml.save(playerdataFile);
         } catch (IOException e) {
             logger.severe("Could not save autosell data to playerdata.yml!");
-            e.printStackTrace();
         }
     }
 }

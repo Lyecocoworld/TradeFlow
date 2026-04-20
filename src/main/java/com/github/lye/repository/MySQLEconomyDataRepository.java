@@ -1,7 +1,7 @@
 package com.github.lye.repository;
 
-import com.google.gson.Gson;
 import com.github.lye.database.MySQLConnector;
+import com.github.lye.util.GsonShared;
 import com.github.lye.util.TradeFlowLogger;
 
 import java.sql.Connection;
@@ -16,7 +16,7 @@ public class MySQLEconomyDataRepository implements EconomyDataRepository {
 
     private final MySQLConnector connector;
     private final TradeFlowLogger logger;
-    private final Gson gson = new Gson();
+    private final com.google.gson.Gson gson = GsonShared.INSTANCE;
 
     public MySQLEconomyDataRepository(MySQLConnector connector, TradeFlowLogger logger) {
         this.connector = connector;

@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import com.github.lye.gateway.AccessGateway;
 import com.github.lye.config.ConfigResolver;
@@ -11,6 +13,8 @@ import com.github.lye.access.rules.CollectFirstRule;
 import com.github.lye.access.rules.CollectFirstRule.CFMode;
 
 public final class DefaultAccessResolver implements AccessResolver {
+  private static final Logger LOGGER = Logger.getLogger(DefaultAccessResolver.class.getName());
+
   private final List<AccessRule> rules;
   private final Supplier<Boolean> isAccessReady;
   private final AccessGateway gateway;
@@ -63,10 +67,26 @@ public final class DefaultAccessResolver implements AccessResolver {
           effectiveRules.add(0, tempRule); // Prepend the temporary rule
         } catch (IllegalArgumentException e) {
           // Log error for invalid CFMode
-          System.err.println("Invalid CFMode in accessRule: " + accessRule);
+          LOGGER.warning("Invalid CFMode in accessRule: " + accessRule);
         }
+      } else if (parts.length == 2 && parts[0].equalsIgnoreCase("PERMISSION")) {
+        String permission = parts[1];
+        UUID playerId = p.getUniqueId();
+        AccessRule tempRule = new AccessRule() {
+          @Override
+          public String id() {
+            return "permission-" + permission;
+          }
+
+          @Override
+          public Decision decide(AccessContext ctx, String itemKey) {
+            Player online = Bukkit.getPlayer(playerId);
+            return (online != null && online.hasPermission(permission)) ? Decision.UNLOCKED : Decision.LOCKED;
+          }
+        };
+        effectiveRules = new java.util.ArrayList<>(this.rules);
+        effectiveRules.add(0, tempRule);
       }
-      // TODO: Handle other types of access rules (e.g., PERMISSION)
     }
 
     boolean anyPending = false;

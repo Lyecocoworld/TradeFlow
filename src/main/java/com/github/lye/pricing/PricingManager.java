@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 public final class PricingManager {
@@ -34,7 +35,7 @@ public final class PricingManager {
             
                 // --- Async Debouncing ---
                 private volatile boolean dirty = false;
-                private volatile boolean isCalculating = false;
+                private final AtomicBoolean isCalculating = new AtomicBoolean(false);
                 private volatile java.util.function.Consumer<PriceSnapshot> onCompleteCallback;
             
                 public PricingManager(AuditService audit, PricingParams params, PriceService priceService, CentralBankStockManager centralBankStockManager, IPluginSettings pluginSettings, com.github.lye.market.MarketTrendManager marketTrendManager, java.util.function.Supplier<com.github.lye.events.EconomicEventManager> eventManagerSupplier) {
@@ -61,15 +62,13 @@ public final class PricingManager {
              * Called periodically by the main server scheduler.
              */
             public void tick(Map<String, Shop> loadedShops) {
-                if (dirty && !isCalculating) {
+                if (dirty && isCalculating.compareAndSet(false, true)) {
                     dirty = false;
                     start(loadedShops);
                 }
             }
         
             public void start(Map<String, Shop> loadedShops) {
-                if (isCalculating) return; // Prevent overlapping calculations
-                isCalculating = true;
         
                 Map<ItemId, ItemConfig> itemConfigs = new HashMap<>();
                 for (Map.Entry<String, Shop> entry : loadedShops.entrySet()) {
@@ -120,10 +119,10 @@ public final class PricingManager {
                                                 onCompleteCallback.accept(snapshot);
                                             }
                             
-                                            isCalculating = false;
+                                            isCalculating.set(false);
                                             // If it became dirty while we were calculating, catch it next tick
                                         }).exceptionally(ex -> {                    logger.severe("[Pricing] Failed to calculate prices: " + ex.getMessage());
-                    isCalculating = false;
+                    isCalculating.set(false);
                     return null;
                 });
             }    

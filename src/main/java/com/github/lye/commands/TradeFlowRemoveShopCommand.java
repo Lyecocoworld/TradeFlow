@@ -5,6 +5,8 @@ import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.config.Config;
 import com.github.lye.data.Database;
 import com.github.lye.data.ShopUtil;
@@ -35,10 +37,10 @@ public class TradeFlowRemoveShopCommand extends BaseCommand {
 
         Database.acquireWriteLock();
         try {
-            if (plugin.getShopUtil().removeShop(shopName)) {
-                plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminShopRemoved(), null);
+            if (plugin.getServices().get(ShopUtil.class).removeShop(shopName)) {
+                plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, plugin.getServices().get(IMessageSettings.class).getAdminShopRemoved(), null);
             } else {
-                plugin.getMessageService().sendErrorMessage(sender, plugin.getMessageSettings().getAdminShopNotFound(), null);
+                plugin.getServices().get(IMessageService.class).sendErrorMessage(sender, plugin.getServices().get(IMessageSettings.class).getAdminShopNotFound(), null);
             }
         } finally {
             Database.releaseWriteLock();
@@ -49,7 +51,7 @@ public class TradeFlowRemoveShopCommand extends BaseCommand {
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length == 1) {
-            return Arrays.stream(plugin.getShopUtil().getShopNames())
+            return Arrays.stream(plugin.getServices().get(ShopUtil.class).getShopNames())
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }

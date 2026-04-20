@@ -7,13 +7,13 @@ import org.bukkit.command.TabCompleter;
 import com.github.lye.TradeFlow;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CommandManager implements CommandExecutor, TabCompleter {
     private final TradeFlow plugin;
-    private final Map<String, ICommand> commands = new HashMap<>();
+    private final Map<String, ICommand> commands = new ConcurrentHashMap<>();
 
     public CommandManager(TradeFlow plugin) {
         this.plugin = plugin;

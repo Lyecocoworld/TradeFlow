@@ -3,6 +3,7 @@ package com.github.lye.data;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.Arrays;
+import java.util.Map;
 import com.github.lye.util.Format;
 
 import org.bukkit.OfflinePlayer;
@@ -60,7 +61,7 @@ public class ShopUtil {
      * @return The list of possible section names.
      */
     public String[] getSectionNames() {
-        return database.sections.keySet().toArray(new String[0]);
+        return database.getSections().keySet().toArray(new String[0]);
     }
 
     public Shop createShopFromConfig(String shopName, ConfigurationSection shopConfig, String sectionName, boolean isEnchantment) {
@@ -81,13 +82,14 @@ public class ShopUtil {
      * @return The section.
      */
     public Section getSection(String name) {
-        if (database.sections.containsKey(name)) {
-            return database.sections.get(name);
+        Map<String, Section> sections = database.getSections();
+        if (sections.containsKey(name)) {
+            return sections.get(name);
         }
 
         for (String sectionName : getSectionNames()) {
             if (sectionName.equalsIgnoreCase(name)) {
-                return database.sections.get(sectionName);
+                return sections.get(sectionName);
             }
         }
 
@@ -103,7 +105,7 @@ public class ShopUtil {
     }
 
     public void addTransaction(Transaction transaction) {
-        database.transactions.put(java.util.UUID.randomUUID().toString(), transaction);
+        database.putTransaction(java.util.UUID.randomUUID().toString(), transaction);
     }
 
     public boolean removeShop(String item) {

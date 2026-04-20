@@ -1,28 +1,24 @@
 
 package com.github.lye.server;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.handler.ContextHandler;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.InetAddress;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collection;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
+import com.github.lye.util.InputSanitizer;
 import com.github.lye.util.TradeFlowLogger;
 
 /**
@@ -44,9 +40,19 @@ public class ApiServlet extends HttpServlet {
 
     // Rate limiting: max requests per minute per IP
     private static final int RATE_LIMIT = 60;
-    private static final long RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+    private static final long RATE_LIMIT_WINDOW_MS = 60_000;
+    private static final int RATE_LIMIT_ADMIN = 5;
+    private static final long RATE_LIMIT_ADMIN_WINDOW_MS = 60_000;
 
-    private final Map<String, RateLimitEntry> rateLimitMap = new ConcurrentHashMap<>();
+    private final Cache<String, RateLimitEntry> rateLimitCache = Caffeine.newBuilder()
+        .expireAfterAccess(Duration.ofMinutes(5))
+        .maximumSize(10_000)
+        .build();
+
+    private final Cache<String, RateLimitEntry> adminRateLimitCache = Caffeine.newBuilder()
+        .expireAfterAccess(Duration.ofMinutes(5))
+        .maximumSize(1_000)
+        .build();
 
     public ApiServlet(Database database, TradeFlowLogger logger, String apiKey, com.github.lye.TradeFlow tradeFlow) {
         this.database = database;
@@ -65,8 +71,8 @@ public class ApiServlet extends HttpServlet {
 
         // Check API key if configured
         if (apiKey != null && !apiKey.isEmpty()) {
-            String providedKey = req.getParameter("key");
-            if (!apiKey.equals(providedKey)) {
+            String providedKey = extractApiKey(req);
+            if (!constantTimeEquals(apiKey, providedKey)) {
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 resp.getWriter().println(gson.toJson(new ErrorResponse("Unauthorized")));
                 return;
@@ -113,17 +119,16 @@ public class ApiServlet extends HttpServlet {
 
         // Check API key
         if (apiKey != null && !apiKey.isEmpty()) {
-            String providedKey = req.getParameter("key");
-            if (!apiKey.equals(providedKey)) {
+            String providedKey = extractApiKey(req);
+            if (!constantTimeEquals(apiKey, providedKey)) {
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 resp.getWriter().println(gson.toJson(new ErrorResponse("Unauthorized")));
                 return;
             }
         }
 
-        // Rate limiting for POST (stricter)
         String clientIp = getClientIp(req);
-        if (!checkRateLimit(clientIp, 10, 60_000)) { // 10 req/min for POST
+        if (!checkRateLimit(clientIp, RATE_LIMIT_ADMIN, RATE_LIMIT_ADMIN_WINDOW_MS, adminRateLimitCache)) {
             resp.setStatus(429);
             resp.getWriter().println(gson.toJson(new ErrorResponse("Rate limit exceeded")));
             return;
@@ -145,6 +150,50 @@ public class ApiServlet extends HttpServlet {
         }
     }
 
+    // ── API Key Extraction ──────────────────────────────────────
+
+    /**
+     * Extracts the API key from the request. Prefers the Authorization
+     * header ({@code Bearer <key>}), falls back to the {@code key} query
+     * parameter with a one-time deprecation warning.
+     */
+    private String extractApiKey(HttpServletRequest req) {
+        String authHeader = req.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7).trim();
+        }
+        return null;
+    }
+
+    // ── Constant-Time Comparison ────────────────────────────────
+
+    /**
+     * Constant-time string comparison to prevent timing attacks.
+     * Always compares every character regardless of where differences occur.
+     */
+    private boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null || a.length() != b.length()) {
+            return false;
+        }
+        int result = 0;
+        for (int i = 0; i < a.length(); i++) {
+            result |= a.charAt(i) ^ b.charAt(i);
+        }
+        return result == 0;
+    }
+
+    // ── Trusted Proxy Detection ─────────────────────────────────
+
+    /**
+     * Returns true if the given address is a trusted reverse proxy
+     * (localhost in IPv4 or IPv6 variants).
+     */
+    private boolean isTrustedProxy(String addr) {
+        return "127.0.0.1".equals(addr)
+            || "::1".equals(addr)
+            || "0:0:0:0:0:0:0:1".equals(addr);
+    }
+
     /**
      * Sets security headers on the response.
      */
@@ -163,7 +212,7 @@ public class ApiServlet extends HttpServlet {
             // Validate pagination parameters
             int page = parseIntParameter(req, "page", 1);
             int limit = parseIntParameter(req, "limit", 50);
-            String search = sanitizeString(req.getParameter("search"));
+            String search = InputSanitizer.sanitizeSearch(req.getParameter("search"));
 
             // Enforce limits
             limit = Math.min(limit, 100);
@@ -214,7 +263,7 @@ public class ApiServlet extends HttpServlet {
 
             Database.acquireReadLock();
             Collection<com.github.lye.data.Transaction> transactions =
-                database.transactions.values();
+                database.getTransactions().values();
 
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.getWriter().println(gson.toJson(transactions));
@@ -232,8 +281,9 @@ public class ApiServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.getWriter().println(gson.toJson(new SuccessResponse("Price recalculation triggered")));
         } catch (Exception e) {
+            logger.severe("Price recalculation failed: " + e.getMessage());
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            resp.getWriter().println(gson.toJson(new ErrorResponse("Failed to recalculate: " + e.getMessage())));
+            resp.getWriter().println(gson.toJson(new ErrorResponse("Failed to recalculate prices. Check server logs for details.")));
         }
     }
 
@@ -250,42 +300,37 @@ public class ApiServlet extends HttpServlet {
     }
 
     /**
-     * Gets the client IP address, handling X-Forwarded-For header.
+     * Gets the client IP address. Only trusts the X-Forwarded-For header
+     * when the request originates from a trusted proxy (localhost).
      */
     private String getClientIp(HttpServletRequest req) {
-        String xff = req.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            // Take the first IP in the chain
-            String[] ips = xff.split(",");
-            return ips[0].trim();
+        String remoteAddr = req.getRemoteAddr();
+        // Only trust X-Forwarded-For from localhost or trusted proxies
+        if (isTrustedProxy(remoteAddr)) {
+            String forwarded = req.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isEmpty()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
-        return req.getRemoteAddr();
+        return remoteAddr;
     }
 
     /**
      * Checks rate limit for a client.
      */
     private boolean checkRateLimit(String clientIp) {
-        return checkRateLimit(clientIp, RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+        return checkRateLimit(clientIp, RATE_LIMIT, RATE_LIMIT_WINDOW_MS, rateLimitCache);
     }
 
-    /**
-     * Checks rate limit with custom parameters.
-     */
-    private boolean checkRateLimit(String clientIp, int maxRequests, long windowMs) {
+    private boolean checkRateLimit(String clientIp, int maxRequests, long windowMs, Cache<String, RateLimitEntry> cache) {
         long now = System.currentTimeMillis();
-        RateLimitEntry entry = rateLimitMap.computeIfAbsent(
-            clientIp,
-            k -> new RateLimitEntry(now)
-        );
+        RateLimitEntry entry = cache.get(clientIp, k -> new RateLimitEntry(now));
 
-        // Reset if window expired
         if (now - entry.windowStart > windowMs) {
             entry.windowStart = now;
             entry.count.set(0);
         }
 
-        // Increment and check
         int newCount = entry.count.incrementAndGet();
         if (newCount > maxRequests) {
             logger.warning("API rate limit exceeded for " + clientIp);
@@ -337,22 +382,10 @@ public class ApiServlet extends HttpServlet {
     }
 
     /**
-     * Sanitizes a string parameter to prevent XSS.
-     */
-    private String sanitizeString(String input) {
-        if (input == null) {
-            return null;
-        }
-
-        // Remove potentially dangerous characters
-        return input.replaceAll("[<>\"'&]", "");
-    }
-
-    /**
      * Rate limit entry for tracking requests.
      */
     private static class RateLimitEntry {
-        long windowStart;
+        volatile long windowStart;
         final AtomicInteger count = new AtomicInteger(0);
 
         RateLimitEntry(long windowStart) {

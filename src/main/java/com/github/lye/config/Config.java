@@ -365,9 +365,15 @@ public class Config {
         if (input == null || input.isEmpty()) {
             return "";
         }
-        StringBuilder sb = new StringBuilder(input.length());
-        for (int i = 0; i < input.length(); i++) {
-            char c = input.charAt(i);
+        String sanitized = input;
+
+        sanitized = sanitized.replace("\0", "");
+        sanitized = sanitized.replaceAll("!![a-zA-Z0-9_.-]+", "");
+        sanitized = sanitized.replace("{{", "").replace("}}", "");
+
+        StringBuilder sb = new StringBuilder(sanitized.length());
+        for (int i = 0; i < sanitized.length(); i++) {
+            char c = sanitized.charAt(i);
             if (c == '\t' || c == '\n' || c == '\r' || c >= 0x20) {
                 sb.append(c);
             }

@@ -4,22 +4,16 @@ import com.github.lye.bootstrap.PluginBootstrap;
 import com.github.lye.config.Config;
 import com.github.lye.config.ConfigResolver;
 import com.github.lye.config.settings.*;
-import com.github.lye.access.AccessResolver;
 import com.github.lye.data.*;
 import com.github.lye.database.*;
 import com.github.lye.events.EconomicEventManager;
-import com.github.lye.gameplay.ReputationManager;
 import com.github.lye.gameplay.rumors.RumorManager;
-import com.github.lye.gateway.AccessGateway;
 import com.github.lye.gui.GuiNavigator;
 import com.github.lye.gmq.GmqService;
 import com.github.lye.license.LicenseManager;
 import com.github.lye.market.MarketTrendManager;
 import com.github.lye.market.StockManager;
-import com.github.lye.pricing.PricingManager;
 import com.github.lye.pricing.database.PriceDatabaseAPI;
-import com.github.lye.pricing.gui.FamilyRegistry;
-import com.github.lye.pricing.service.PriceService;
 import com.github.lye.redis.RedisClient;
 import com.github.lye.repository.MySQLShopRepository;
 import com.github.lye.repository.PriceRepository;
@@ -38,8 +32,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -79,21 +71,13 @@ public class TradeFlow extends JavaPlugin {
     private com.github.lye.database.ServerStateData serverStateData;
     private IPlayerCollectionData playerCollectionData;
     private IServerCollectionData serverCollectionData;
-    private final Map<UUID, Set<String>> loadedAutosellSettings = new ConcurrentHashMap<>();
     private EconomicEventManager economicEventManager;
     private CentralBankStockManager centralBankStockManager;
     private GmqService gmqService;
     private List<String> sortedShopItems;
-    private AccessGateway accessGateway;
     private ConfigResolver configResolver;
-    private AccessResolver accessResolver;
-    private PriceService priceService;
-    private FamilyRegistry familyRegistry;
-    private IPurchaseValidationService purchaseValidationService;
-    private ITransactionService transactionService;
     private IInventoryService inventoryService;
     private IMessageService messageService;
-    private PurchaseUtil purchaseUtil;
     private IPluginSettings pluginSettings;
     private IPricingSettings pricingSettings;
     private IGuiSettings guiSettings;
@@ -106,13 +90,11 @@ public class TradeFlow extends JavaPlugin {
     private MarketTrendManager marketTrendManager;
     private StockManager stockManager;
     private RumorManager rumorManager;
-    private ReputationManager reputationManager;
     private Database database;
     private LicenseManager licenseManager;
     private GuiNavigator guiNavigator;
     private PriceDatabaseAPI priceDatabaseAPI;
     private com.github.lye.repository.PriceRepository priceRepository;
-    private PricingManager pricingManager;
     private TradeFlowLogger tradeLogger;
     private RedisClient redisClient;
     private TaxManager taxManager;
@@ -178,8 +160,11 @@ public class TradeFlow extends JavaPlugin {
      * Synchronizes legacy fields with the service registry.
      * <p>
      * This method maintains backward compatibility with existing code
-     * that accesses fields directly. New code should use the ServiceRegistry.</p>
+     * that accesses fields directly. New code should use the ServiceRegistry.
+     *
+     * @deprecated Called internally by {@link PluginBootstrap}. Will be removed once all callers migrate to ServiceRegistry.
      */
+    @Deprecated
     public void syncLegacyFields() {
         if (bootstrap == null) {
             return;
@@ -202,26 +187,17 @@ public class TradeFlow extends JavaPlugin {
         this.shopUtil = services.get(ShopUtil.class);
         this.economyDataUtil = services.get(EconomyDataUtil.class);
         this.centralBankStockManager = services.get(CentralBankStockManager.class);
-        this.priceService = services.get(PriceService.class);
-        this.familyRegistry = services.get(FamilyRegistry.class);
-        this.purchaseValidationService = services.get(IPurchaseValidationService.class);
-        this.transactionService = services.get(ITransactionService.class);
         this.inventoryService = services.get(IInventoryService.class);
         this.messageService = services.get(IMessageService.class);
-        this.purchaseUtil = services.get(PurchaseUtil.class);
         this.economicEventManager = services.get(EconomicEventManager.class);
         this.gmqService = services.get(GmqService.class);
-        this.reputationManager = services.get(ReputationManager.class);
         this.rumorManager = services.get(RumorManager.class);
         this.licenseManager = services.get(LicenseManager.class);
         this.stockManager = services.get(StockManager.class);
         this.marketTrendManager = services.get(MarketTrendManager.class);
         this.guiNavigator = services.get(GuiNavigator.class);
-        this.pricingManager = services.get(PricingManager.class);
         this.taxManager = services.get(TaxManager.class);
         this.configResolver = services.get(ConfigResolver.class);
-        this.accessResolver = services.get(AccessResolver.class);
-        this.accessGateway = bootstrap.getAccessGateway();
 
         this.mysqlConnector = bootstrap.getDatabaseBootstrap().getMysqlConnector();
         this.mySqlEnabled = bootstrap.getDatabaseBootstrap().isMySqlEnabled();
@@ -260,61 +236,87 @@ public class TradeFlow extends JavaPlugin {
     }
 
     // ==================== LEGACY GETTERS ====================
-    // These methods maintain backward compatibility with existing code
+    // These methods maintain backward compatibility with existing code.
+    // All new code should use: plugin.getServices().get(XxxService.class)
+    // See ServiceRegistry for available services.
 
-    public PriceService getPriceService() { return priceService; }
-    public PricingManager getPricingManager() { return pricingManager; }
-    public FamilyRegistry getFamilyRegistry() { return familyRegistry; }
-    public CentralBankStockManager getCentralBankStockManager() { return centralBankStockManager; }
-    public ReputationManager getReputationManager() { return reputationManager; }
-    public IPurchaseValidationService getPurchaseValidationService() { return purchaseValidationService; }
-    public ITransactionService getTransactionService() { return transactionService; }
-    public IInventoryService getInventoryService() { return inventoryService; }
-    public IMessageService getMessageService() { return messageService; }
-    public PurchaseUtil getPurchaseUtil() { return purchaseUtil; }
-    public IPluginSettings getPluginSettings() { return pluginSettings; }
-    public Database getDatabase() { return database; }
-    public Economy getEconomy() { return EconomyUtil.getEconomy(); }
-    public Map<String, Transaction> getLoadedTransactions() {
-        return database != null ? database.transactions : new ConcurrentHashMap<>();
+    /** @deprecated Use {@code getServices().get(CentralBankStockManager.class)} */
+    @Deprecated public CentralBankStockManager getCentralBankStockManager() { return centralBankStockManager; }
+    /** @deprecated Use {@code getServices().get(IInventoryService.class)} */
+    @Deprecated public IInventoryService getInventoryService() { return inventoryService; }
+    /** @deprecated Use {@code getServices().get(IMessageService.class)} */
+    @Deprecated public IMessageService getMessageService() { return messageService; }
+
+    /** @deprecated Use {@code getServices().get(IPluginSettings.class)} */
+    @Deprecated public IPluginSettings getPluginSettings() { return pluginSettings; }
+    /** @deprecated Use {@code getServices().get(Database.class)} */
+    @Deprecated public Database getDatabase() { return database; }
+    /** @deprecated Use {@code EconomyUtil.getEconomy()} directly */
+    @Deprecated public Economy getEconomy() { return EconomyUtil.getEconomy(); }
+    /** @deprecated Use {@code getDatabase().getTransactions()} */
+    @Deprecated public Map<String, Transaction> getLoadedTransactions() {
+        return database != null ? database.getTransactions() : new ConcurrentHashMap<>();
     }
-    public Map<String, Shop> getLoadedShops() {
+    /** @deprecated Use {@code getDatabase().getShops()} */
+    @Deprecated public Map<String, Shop> getLoadedShops() {
         return database != null ? database.getShops() : new ConcurrentHashMap<>();
     }
-    public Map<String, Loan> getLoadedLoans() {
-        return database != null ? database.getLoans() : new ConcurrentHashMap<>();
+
+    /** @deprecated Use {@code getDatabase().getEconomyData()} */
+    @Deprecated public Map<String, double[]> getLoadedEconomyData() {
+        return database != null ? database.getEconomyData() : new ConcurrentHashMap<>();
     }
-    public Map<String, double[]> getLoadedEconomyData() {
-        return database != null ? database.economyData : new ConcurrentHashMap<>();
-    }
-    public PlayerData getPlayerData() { return playerData; }
-    public Map<UUID, Set<String>> getLoadedAutosellSettings() { return loadedAutosellSettings; }
-    public boolean isMySqlEnabled() { return mySqlEnabled; }
-    public MySQLConnector getMysqlConnector() { return mysqlConnector; }
-    public BatchWriteOptimizer getBatchWriteOptimizer() { return batchWriteOptimizer; }
-    public MySQLShopRepository getMySQLShopRepository() { return mySQLShopRepository; }
-    public EconomicEventManager getEconomicEventManager() { return economicEventManager; }
-    public AccessGateway getAccessGateway() { return accessGateway; }
-    public ConfigResolver getConfigResolver() { return configResolver; }
-    public AccessResolver getAccessResolver() { return accessResolver; }
-    public ServerStateData getServerStateData() { return serverStateData; }
-    public TradeFlowLogger getTradeLogger() { return tradeLogger; }
-    public RedisClient getRedisClient() { return redisClient; }
-    public IShopDefinitions getShopDefinitions() { return shopDefinitions; }
-    public IEconomicEventSettings getEconomicEventSettings() { return economicEventSettings; }
-    public EconomyDataUtil getEconomyDataUtil() { return economyDataUtil; }
-    public ShopUtil getShopUtil() { return shopUtil; }
-    public IPlayerCollectionData getPlayerCollectionData() { return playerCollectionData; }
-    public GuiNavigator getGuiNavigator() { return guiNavigator; }
-    public RumorManager getRumorManager() { return rumorManager; }
-    public IGuiSettings getGuiSettings() { return guiSettings; }
-    public IMessageSettings getMessageSettings() { return messageSettings; }
-    public IPricingSettings getPricingSettings() { return pricingSettings; }
-    public MarketTrendManager getMarketTrendManager() { return marketTrendManager; }
-    public LicenseManager getLicenseManager() { return licenseManager; }
-    public IAutosellSettings getAutosellSettings() { return autosellSettings; }
-    public TaxManager getTaxManager() { return taxManager; }
-    public ITaxSettings getTaxSettings() {
+    /** @deprecated Use {@code getServices().get(IPlayerCollectionData.class)} via bootstrap */
+    @Deprecated public PlayerData getPlayerData() { return playerData; }
+
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().isMySqlEnabled() */
+    @Deprecated public boolean isMySqlEnabled() { return mySqlEnabled; }
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().getMysqlConnector() */
+    @Deprecated public MySQLConnector getMysqlConnector() { return mysqlConnector; }
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().getBatchWriteOptimizer() */
+    @Deprecated public BatchWriteOptimizer getBatchWriteOptimizer() { return batchWriteOptimizer; }
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().getMySQLShopRepository() */
+    @Deprecated public MySQLShopRepository getMySQLShopRepository() { return mySQLShopRepository; }
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().getEconomicEventManager() or getServices() */
+    @Deprecated public EconomicEventManager getEconomicEventManager() { return economicEventManager; }
+    /** @deprecated Use {@code getServices().get(ConfigResolver.class)} */
+    @Deprecated public ConfigResolver getConfigResolver() { return configResolver; }
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().getServerStateData() */
+    @Deprecated public ServerStateData getServerStateData() { return serverStateData; }
+    /** @deprecated Use {@code getServices().get(TradeFlowLogger.class)} */
+    @Deprecated public TradeFlowLogger getTradeLogger() { return tradeLogger; }
+    /** @deprecated Use {@code getServices().get(RedisClient.class)} */
+    @Deprecated public RedisClient getRedisClient() { return redisClient; }
+    /** @deprecated Use {@code getServices().get(IShopDefinitions.class)} */
+    @Deprecated public IShopDefinitions getShopDefinitions() { return shopDefinitions; }
+    /** @deprecated Use {@code getServices().get(IEconomicEventSettings.class)} */
+    @Deprecated public IEconomicEventSettings getEconomicEventSettings() { return economicEventSettings; }
+    /** @deprecated Use {@code getServices().get(EconomyDataUtil.class)} */
+    @Deprecated public EconomyDataUtil getEconomyDataUtil() { return economyDataUtil; }
+    /** @deprecated Use {@code getServices().get(ShopUtil.class)} */
+    @Deprecated public ShopUtil getShopUtil() { return shopUtil; }
+    /** @deprecated Use bootstrap.getDatabaseBootstrap().getPlayerCollectionData() */
+    @Deprecated public IPlayerCollectionData getPlayerCollectionData() { return playerCollectionData; }
+    /** @deprecated Use {@code getServices().get(GuiNavigator.class)} */
+    @Deprecated public GuiNavigator getGuiNavigator() { return guiNavigator; }
+    /** @deprecated Use {@code getServices().get(RumorManager.class)} */
+    @Deprecated public RumorManager getRumorManager() { return rumorManager; }
+    /** @deprecated Use {@code getServices().get(IGuiSettings.class)} */
+    @Deprecated public IGuiSettings getGuiSettings() { return guiSettings; }
+    /** @deprecated Use {@code getServices().get(IMessageSettings.class)} */
+    @Deprecated public IMessageSettings getMessageSettings() { return messageSettings; }
+    /** @deprecated Use {@code getServices().get(IPricingSettings.class)} */
+    @Deprecated public IPricingSettings getPricingSettings() { return pricingSettings; }
+    /** @deprecated Use {@code getServices().get(MarketTrendManager.class)} */
+    @Deprecated public MarketTrendManager getMarketTrendManager() { return marketTrendManager; }
+    /** @deprecated Use {@code getServices().get(LicenseManager.class)} */
+    @Deprecated public LicenseManager getLicenseManager() { return licenseManager; }
+    /** @deprecated Use {@code getServices().get(IAutosellSettings.class)} */
+    @Deprecated public IAutosellSettings getAutosellSettings() { return autosellSettings; }
+    /** @deprecated Use {@code getServices().get(TaxManager.class)} */
+    @Deprecated public TaxManager getTaxManager() { return taxManager; }
+    /** @deprecated Use bootstrap.getConfigLoader().getTaxSettings() */
+    @Deprecated public ITaxSettings getTaxSettings() {
         return bootstrap != null ? bootstrap.getConfigLoader().getTaxSettings() : null;
     }
 }

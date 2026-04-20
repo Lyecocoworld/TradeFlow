@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import com.github.lye.service.IPurchaseValidationService;
 import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.config.settings.IPricingSettings;
 import com.github.lye.service.IMessageService;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -23,6 +24,7 @@ public class DefaultPurchaseValidationService implements IPurchaseValidationServ
     private final Database database;
     private final IMessageSettings messageSettings;
     private final IPluginSettings pluginSettings;
+    private final IPricingSettings pricingSettings;
     private final IMessageService messageService;
     private final CentralBankStockManager centralBankStockManager;
     private final ShopUtil shopUtil;
@@ -31,6 +33,7 @@ public class DefaultPurchaseValidationService implements IPurchaseValidationServ
     public DefaultPurchaseValidationService(Database database,
                                             IMessageSettings messageSettings,
                                             IPluginSettings pluginSettings,
+                                            IPricingSettings pricingSettings,
                                             IMessageService messageService,
                                             CentralBankStockManager centralBankStockManager,
                                             ShopUtil shopUtil,
@@ -38,33 +41,51 @@ public class DefaultPurchaseValidationService implements IPurchaseValidationServ
         this.database = database;
         this.messageSettings = messageSettings;
         this.pluginSettings = pluginSettings;
+        this.pricingSettings = pricingSettings;
         this.messageService = messageService;
         this.centralBankStockManager = centralBankStockManager;
         this.shopUtil = shopUtil;
         this.plugin = tradeFlow;
     }
 
+    /**
+     * Backward-compatible validation using base shop prices.
+     * Delegates to the full overload with zero tax estimate.
+     */
     @Override
     public boolean validatePurchase(Player player, Shop shop, int amount, boolean isBuy) {
+        double basePrice = isBuy ? shop.getPrice() : shop.getSellPrice();
+        double baseTotal = basePrice * amount;
+        return validatePurchase(player, shop, amount, isBuy, baseTotal, 0);
+    }
+
+    /**
+     * Full validation using the actual final total and estimated tax.
+     * <p>
+     * For buys: ensures the player can cover {@code finalTotal + estimatedTax}.
+     * For sells: ensures the bank can cover {@code finalTotal}.
+     * All other checks (stock, quotas, saturation) use the shop data directly.
+     */
+    @Override
+    public boolean validatePurchase(Player player, Shop shop, int amount, boolean isBuy,
+                                     double finalTotal, double estimatedTax) {
         if (amount <= 0) {
             messageService.sendErrorMessage(player, "<red>Amount must be positive.</red>", null);
             return false;
         }
 
         Component display = Shop.getDisplayName(shop.getName(), shop.isEnchantment());
-        double price = isBuy ? shop.getPrice() : shop.getSellPrice();
-        double total = price * amount;
+        double basePrice = isBuy ? shop.getPrice() : shop.getSellPrice();
+        double balance = EconomyUtil.getEconomy().getBalance(player);
+        TagResolver r = messageService.getPurchaseTagResolver(display, basePrice, amount, balance);
 
-        if (total < 0) {
+        if (finalTotal < 0) {
             messageService.sendErrorMessage(player, "<red>Invalid transaction: Total price cannot be negative.</red>", null);
             return false;
         }
 
-        double balance = EconomyUtil.getEconomy().getBalance(player);
-        TagResolver r = messageService.getPurchaseTagResolver(display, price, amount, balance);
-
-        // Player Solvency (for buying)
-        if (isBuy && balance < total) {
+        // Player Solvency (for buying) — validates against FINAL total + estimated tax
+        if (isBuy && balance < finalTotal + estimatedTax) {
             messageService.sendErrorMessage(player, messageSettings.getNotEnoughMoney(), r);
             return false;
         }
@@ -79,16 +100,16 @@ public class DefaultPurchaseValidationService implements IPurchaseValidationServ
             }
         }
 
-        // Bank Solvency (for selling to bank)
+        // Bank Solvency (for selling to bank) — validates against FINAL total
         if (!isBuy && pluginSettings.isEnableDynamicPricing()) {
             String bankName = pluginSettings.getCentralBankAccount();
             if (bankName != null && !bankName.isEmpty()) {
                 double totalBankAssets = EconomyUtil.getCentralBankBalance(plugin);
-                boolean canAfford = totalBankAssets >= total;
+                boolean canAfford = totalBankAssets >= finalTotal;
 
                 if (!canAfford) {
                     // Safety Bypass: If the bank has essentially zero money (uninitialized), don't block the economy.
-                    if (totalBankAssets < 100.0) {
+                    if (totalBankAssets < pricingSettings.getBootstrapThreshold()) {
                         Bukkit.getLogger().warning("[TradeFlow] Central Bank '" + bankName + "' has insufficient funds (" + totalBankAssets + "), but transaction allowed to bootstrap economy.");
                         return true; // ALLOW
                     }
@@ -124,7 +145,7 @@ public class DefaultPurchaseValidationService implements IPurchaseValidationServ
         if (!isBuy && shop.getGlobalStockLimit() > 0 && centralBankStockManager != null) {
             int currentVirtualStock = centralBankStockManager.getCurrentStock(shop);
             int idealStock = shop.getGlobalStockLimit();
-            int maxCapacity = idealStock * 5; // The bank refuses to buy if it has 5x the ideal stock (saturation)
+            int maxCapacity = (int) (idealStock * pricingSettings.getSaturationMultiplier());
             
             if (currentVirtualStock >= maxCapacity) {
                 messageService.sendErrorMessage(player, "<red>The Central Bank has a surplus of this item and refuses to buy more.</red>", null);

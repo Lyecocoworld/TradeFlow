@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CraftingDependencyResolver {
 
@@ -39,10 +40,10 @@ public class CraftingDependencyResolver {
         }
     }
 
-    private final Map<String, List<RecipeData>> dependencyGraph = new HashMap<>();
+    private final Map<String, List<RecipeData>> dependencyGraph = new ConcurrentHashMap<>();
     private final java.util.Set<String> craftForwardWhitelist = new java.util.HashSet<>();
-    private final Map<String, String> compressionInverseMap = new HashMap<>();
-    private final Map<String, List<String>> inverseDependencyGraph = new HashMap<>();
+    private final Map<String, String> compressionInverseMap = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> inverseDependencyGraph = new ConcurrentHashMap<>();
     private final java.util.Set<String> stonecutterWhitelist = new java.util.HashSet<>();
     private final Database database;
     private final ShopUtil shopUtil;

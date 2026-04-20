@@ -9,9 +9,14 @@ import com.github.lye.repository.*;
 import com.github.lye.util.TradeFlowLogger;
 import org.bukkit.configuration.ConfigurationSection;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Level;
 import com.github.lye.license.PlayerLicense;
 import com.github.lye.gmq.GlobalMarketStats;
 import org.jetbrains.annotations.Nullable;
@@ -27,13 +32,13 @@ public class Database {
     
     private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public final Map<String, Shop> shops = new ConcurrentHashMap<>();
-    public final Map<String, Loan> loans = new ConcurrentHashMap<>();
-    public final Map<String, Transaction> transactions = new ConcurrentHashMap<>();
-    public final Map<String, double[]> economyData = new ConcurrentHashMap<>();
-    public final Map<String, Section> sections = new ConcurrentHashMap<>();
-    public final Map<UUID, PlayerLicense> licenses = new ConcurrentHashMap<>();
-    public final Map<String, GlobalMarketStats> globalMarketStats = new ConcurrentHashMap<>();
+    private final Map<String, Shop> shops = new ConcurrentHashMap<>();
+    private final Map<String, Loan> loans = new ConcurrentHashMap<>();
+    private final Map<String, Transaction> transactions = new ConcurrentHashMap<>();
+    private final Map<String, double[]> economyData = new ConcurrentHashMap<>();
+    private final Map<String, Section> sections = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerLicense> licenses = new ConcurrentHashMap<>();
+    private final Map<String, GlobalMarketStats> globalMarketStats = new ConcurrentHashMap<>();
 
     private ShopRepository shopRepository;
     private TransactionRepository transactionRepository;
@@ -51,7 +56,7 @@ public class Database {
 
     public void initialize(TradeFlow tradeFlow, IShopDefinitions shopDefinitions, IPricingSettings pricingSettings, IPluginSettings pluginSettings) {
         this.plugin = tradeFlow;
-        if (tradeFlow.isMySqlEnabled()) {
+        if (tradeFlow.getBootstrap().getDatabaseBootstrap().isMySqlEnabled()) {
             setupMySQLRepositories(tradeFlow);
         } else {
             setupFileRepositories();
@@ -62,14 +67,15 @@ public class Database {
     }
 
     private void setupMySQLRepositories(TradeFlow plugin) {
-        MySQLConnector connector = plugin.getMysqlConnector();
-        this.shopRepository = new MySQLShopRepository(plugin, connector, logger, plugin.getBatchWriteOptimizer());
+        MySQLConnector connector = plugin.getBootstrap().getDatabaseBootstrap().getMysqlConnector();
+        this.shopRepository = new MySQLShopRepository(plugin, connector, logger, plugin.getBootstrap().getDatabaseBootstrap().getBatchWriteOptimizer());
         this.transactionRepository = new com.github.lye.repository.MySQLTransactionRepository(connector, logger);
         this.loanRepository = new com.github.lye.repository.MySQLLoanRepository(connector, logger);
         this.licenseRepository = new MySQLLicenseRepository(connector, logger);
         this.economyDataRepository = new com.github.lye.repository.MySQLEconomyDataRepository(connector, logger);
         this.gmqRepository = new com.github.lye.repository.MySQLGlobalMarketStatsRepository(connector, logger);
-        
+
+        initTaxSchema(connector);
         this.economyData.putAll(economyDataRepository.getAllEconomyData());
     }
 
@@ -120,7 +126,7 @@ public class Database {
             plugin.getServer().getAsyncScheduler().runNow(plugin, task -> {
                 try {
                     shopRepository.saveShop(shop);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     logger.warning("Failed to save shop " + shop.getName() + ": " + e.getMessage());
                 }
             });
@@ -128,14 +134,13 @@ public class Database {
     }
     public String[] getShopNames() { return shops.keySet().toArray(new String[0]); }
     public boolean removeShop(String item) { return shops.remove(item) != null; }
-    public Map<String, Loan> getLoans() { return loans; }
     public void updateLoan(String key, Loan loan) {
         loans.put(key, loan);
         if (loanRepository != null) {
             plugin.getServer().getAsyncScheduler().runNow(plugin, task -> {
                 try {
                     loanRepository.saveLoan(loan, key);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     logger.warning("Failed to save loan " + key + ": " + e.getMessage());
                 }
             });
@@ -176,7 +181,14 @@ public class Database {
     public static void acquireWriteLock() { lock.writeLock().lock(); }
     public static void releaseWriteLock() { lock.writeLock().unlock(); }
 
-    public Map<String, Shop> getShops() { return shops; }
+    public Map<String, Shop> getShops() { return Collections.unmodifiableMap(shops); }
+    public Map<String, Loan> getLoans() { return Collections.unmodifiableMap(loans); }
+    public Map<String, Transaction> getTransactions() { return Collections.unmodifiableMap(transactions); }
+    public Map<String, double[]> getEconomyData() { return Collections.unmodifiableMap(economyData); }
+    public Map<String, Section> getSections() { return Collections.unmodifiableMap(sections); }
+    public Map<UUID, PlayerLicense> getLicenses() { return Collections.unmodifiableMap(licenses); }
+    public Map<String, GlobalMarketStats> getGlobalMarketStatsMap() { return Collections.unmodifiableMap(globalMarketStats); }
+
     public ShopUtil getShopUtil() { return shopUtil; }
     public TransactionRepository getTransactionRepository() { return transactionRepository; }
     public LoanRepository getLoanRepository() { return loanRepository; }
@@ -189,7 +201,7 @@ public class Database {
             plugin.getServer().getAsyncScheduler().runNow(plugin, task -> {
                 try {
                     economyDataRepository.saveEconomyData(key, value);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     logger.warning("Failed to save economy data " + key + ": " + e.getMessage());
                 }
             });
@@ -206,40 +218,122 @@ public class Database {
         logger.info("Daily limit reset completed.");
     }
 
+    /**
+     * Intentional no-op. MySQL cleanup is handled by {@code DatabaseBootstrapService}
+     * closing the {@code MySQLConnector} directly. MapDB repositories hold no
+     * external resources that need explicit shutdown.
+     */
     public void close() {}
+
+    /**
+     * Intentional no-op. Relation maintenance between entities is handled
+     * implicitly through the repository layer on each save/load cycle.
+     */
     public void updateRelations() {}
 
     // ========== Tax System Methods ==========
 
-    /**
-     * Gets player trading volumes for progressive tax calculation.
-     *
-     * @return map of player UUID to cumulative trading volume
-     */
+    private void initTaxSchema(MySQLConnector connector) {
+        try (Connection conn = connector.getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "CREATE TABLE IF NOT EXISTS tf_tax_volumes (" +
+                            "player_uuid VARCHAR(36) NOT NULL PRIMARY KEY," +
+                            "volume DOUBLE NOT NULL" +
+                            ");")) {
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "CREATE TABLE IF NOT EXISTS tf_tax_records (" +
+                            "id VARCHAR(36) NOT NULL PRIMARY KEY," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "player_name VARCHAR(16) NOT NULL," +
+                            "transaction_amount DOUBLE NOT NULL," +
+                            "tax_amount DOUBLE NOT NULL," +
+                            "tax_rate DOUBLE NOT NULL," +
+                            "tax_type VARCHAR(24) NOT NULL," +
+                            "shop_name VARCHAR(64) NOT NULL," +
+                            "timestamp BIGINT NOT NULL" +
+                            ");")) {
+                ps.executeUpdate();
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Could not create tax tables!", e);
+        }
+    }
+
+    private boolean isMySqlEnabled() {
+        return plugin != null && plugin.getBootstrap().getDatabaseBootstrap().isMySqlEnabled();
+    }
+
     @Nullable
     public Map<UUID, Double> getPlayerTradingVolumes() {
-        // For file-based storage, return empty map (volumes start fresh each restart)
-        // MySQL implementation can override to load from database
-        return new HashMap<>();
+        if (!isMySqlEnabled()) {
+            return new HashMap<>();
+        }
+        Map<UUID, Double> result = new HashMap<>();
+        MySQLConnector connector = plugin.getBootstrap().getDatabaseBootstrap().getMysqlConnector();
+        try (Connection conn = connector.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT player_uuid, volume FROM tf_tax_volumes");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                result.put(UUID.fromString(rs.getString("player_uuid")), rs.getDouble("volume"));
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Could not load player trading volumes!", e);
+        }
+        return result;
     }
 
-    /**
-     * Saves player trading volumes to persistent storage.
-     *
-     * @param volumes map of player UUID to cumulative trading volume
-     */
     public void savePlayerTradingVolumes(Map<UUID, Double> volumes) {
-        // Default implementation does nothing (file-based)
-        // MySQL implementation can override to save to database
+        if (!isMySqlEnabled() || volumes == null || volumes.isEmpty()) {
+            return;
+        }
+        MySQLConnector connector = plugin.getBootstrap().getDatabaseBootstrap().getMysqlConnector();
+        try (Connection conn = connector.getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO tf_tax_volumes (player_uuid, volume) VALUES (?, ?) " +
+                            "ON DUPLICATE KEY UPDATE volume = ?;")) {
+                for (Map.Entry<UUID, Double> entry : volumes.entrySet()) {
+                    String uuid = entry.getKey().toString();
+                    double vol = entry.getValue();
+                    ps.setString(1, uuid);
+                    ps.setDouble(2, vol);
+                    ps.setDouble(3, vol);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Could not save player trading volumes!", e);
+        }
     }
 
-    /**
-     * Saves tax records to persistent storage.
-     *
-     * @param records list of tax records to save
-     */
     public void saveTaxRecords(List<TaxRecord> records) {
-        // Default implementation does nothing (file-based)
-        // MySQL implementation can override to save to database
+        if (!isMySqlEnabled() || records == null || records.isEmpty()) {
+            return;
+        }
+        MySQLConnector connector = plugin.getBootstrap().getDatabaseBootstrap().getMysqlConnector();
+        try (Connection conn = connector.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT IGNORE INTO tf_tax_records " +
+                             "(id, player_uuid, player_name, transaction_amount, tax_amount, " +
+                             "tax_rate, tax_type, shop_name, timestamp) " +
+                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")) {
+            for (TaxRecord r : records) {
+                ps.setString(1, r.getId());
+                ps.setString(2, r.getPlayerUuid().toString());
+                ps.setString(3, r.getPlayerName());
+                ps.setDouble(4, r.getTransactionAmount());
+                ps.setDouble(5, r.getTaxAmount());
+                ps.setDouble(6, r.getTaxRate());
+                ps.setString(7, r.getTaxType().name());
+                ps.setString(8, r.getShopName());
+                ps.setLong(9, r.getTimestamp());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Could not save tax records!", e);
+        }
     }
 }

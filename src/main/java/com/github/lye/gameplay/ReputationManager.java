@@ -2,6 +2,8 @@ package com.github.lye.gameplay;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.database.PlayerData;
 import com.github.lye.data.Shop;
 import org.bukkit.entity.Player;
 
@@ -23,13 +25,13 @@ public class ReputationManager {
     }
 
     private IPluginSettings settings() {
-        return plugin.getPluginSettings();
+        return plugin.getServices().get(IPluginSettings.class);
     }
 
     public double getReputation(UUID uuid) {
         return reputationCache.computeIfAbsent(uuid, k -> {
-            if (plugin.isMySqlEnabled()) {
-                return plugin.getPlayerData().loadReputation(k);
+            if (plugin.getBootstrap().getDatabaseBootstrap().isMySqlEnabled()) {
+                return plugin.getServices().get(PlayerData.class).loadReputation(k);
             }
             return settings().getReputationDefault();
         });
@@ -42,9 +44,9 @@ public class ReputationManager {
                 current = getReputation(k);
             }
             double next = Math.max(0, Math.min(100, current + amount));
-            if (plugin.isMySqlEnabled()) {
+            if (plugin.getBootstrap().getDatabaseBootstrap().isMySqlEnabled()) {
                 plugin.getServer().getAsyncScheduler().runNow(plugin, task ->
-                    plugin.getPlayerData().saveReputation(uuid, next));
+                    plugin.getServices().get(PlayerData.class).saveReputation(uuid, next));
             }
             return next;
         });
@@ -54,7 +56,7 @@ public class ReputationManager {
      * Logic to determine if a player should gain or lose reputation based on a trade.
      */
     public void processTrade(Player player, Shop shop, int amount, boolean isBuy) {
-        int currentStock = plugin.getCentralBankStockManager().getCurrentStock(shop);
+        int currentStock = plugin.getServices().get(CentralBankStockManager.class).getCurrentStock(shop);
         int idealStock = shop.getGlobalStockLimit();
         if (idealStock <= 0) return;
 

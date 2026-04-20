@@ -2,6 +2,7 @@ package com.github.lye.commands;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.gateway.AccessGateway;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -32,10 +33,10 @@ public class TradeFlowResetCollectionCommand extends BaseCommand {
         String targetItem = args.length > 1 ? args[1].toLowerCase() : null;
 
         // Use the storage abstraction layer to support both File and MySQL
-        plugin.getPlayerCollectionData().resetPlayerCollection(target.getUniqueId(), targetItem);
+        plugin.getBootstrap().getDatabaseBootstrap().getPlayerCollectionData().resetPlayerCollection(target.getUniqueId(), targetItem);
         
         // Invalidate cache
-        plugin.getAccessGateway().invalidateCache(target.getUniqueId());
+        plugin.getServices().get(AccessGateway.class).invalidateCache(target.getUniqueId());
 
         if (targetItem == null) {
             sender.sendMessage("Wiped ALL collection data for " + target.getName());

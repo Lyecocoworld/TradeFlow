@@ -3,11 +3,14 @@ package com.github.lye.pricing.gui;
 import com.github.lye.pricing.model.Family;
 import com.github.lye.pricing.model.ItemId;
 import com.github.lye.pricing.service.PriceService;
+import com.github.lye.access.AccessResolver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.logging.Logger;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -69,16 +72,16 @@ public class GuiVariants {
             ItemStack it = new ItemStack(material);
             ItemMeta meta = it.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName("§f" + niceName);
-                List<String> lore = new ArrayList<>();
+                meta.displayName(MiniMessage.miniMessage().deserialize("<white>" + niceName));
+                List<Component> lore = new ArrayList<>();
                 Optional<Double> priceOpt = priceService.getPrice(variantId);
                 double price = priceOpt.get();
-                lore.add(String.format(Locale.ROOT, "§aPrix unitaire: §f$%.2f", price));
-                lore.add(String.format(Locale.ROOT, "§aPrix stack (64): §f$%.2f", price * 64));
-                lore.add("§7Clic gauche: §f+1");
-                lore.add("§7Shift + clic gauche: §f+16");
-                lore.add("§7Clic droit: §fQuantité personnalisée");
-                meta.setLore(lore);
+                lore.add(MiniMessage.miniMessage().deserialize(String.format(Locale.ROOT, "<green>Prix unitaire: <white>$%.2f", price)));
+                lore.add(MiniMessage.miniMessage().deserialize(String.format(Locale.ROOT, "<green>Prix stack (64): <white>$%.2f", price * 64)));
+                lore.add(MiniMessage.miniMessage().deserialize("<gray>Clic gauche: <white>+1"));
+                lore.add(MiniMessage.miniMessage().deserialize("<gray>Shift + clic gauche: <white>+16"));
+                lore.add(MiniMessage.miniMessage().deserialize("<gray>Clic droit: <white>Quantité personnalisée"));
+                meta.lore(lore);
                 meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
                 it.setItemMeta(meta);
             }
@@ -102,7 +105,7 @@ public class GuiVariants {
             return LockReason.PRICE_UNKNOWN;
         }
 
-        Decision access = plugin.getAccessResolver().resolve(p, id.getKey());
+        Decision access = plugin.getServices().get(AccessResolver.class).resolve(p, id.getKey());
         if (access == Decision.LOCKED || access == Decision.PENDING) {
             logger.fine("GuiVariants.lockState: " + id.getKey() + " -> COLLECT_FIRST_LOCKED (" + access + ")");
             return LockReason.COLLECT_FIRST_LOCKED;
@@ -115,17 +118,17 @@ public class GuiVariants {
         ItemStack it = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta m = it.getItemMeta();
         if (m != null) {
-            m.setDisplayName("§7[Verrouillé] §f" + displayName);
-            List<String> lore = new ArrayList<>();
-            lore.add("§8Contenu verrouillé:");
-            lore.add("§7→ §f" + behindKey);
-            lore.add("");
+            m.displayName(MiniMessage.miniMessage().deserialize("<gray>[Verrouillé] <white>" + displayName));
+            List<Component> lore = new ArrayList<>();
+            lore.add(MiniMessage.miniMessage().deserialize("<dark_gray>Contenu verrouillé:"));
+            lore.add(MiniMessage.miniMessage().deserialize("<gray>→ <white>" + behindKey));
+            lore.add(Component.empty());
             lore.add(switch (reason) {
-                case PRICE_UNKNOWN -> "§cPrix indisponible pour le moment.";
-                case LEVEL_TOO_LOW -> "§cNiveau insuffisant.";
-                case OUT_OF_STOCK -> "§cRupture de stock.";
-                case COLLECT_FIRST_LOCKED -> "§cObjet non collecté.";
-                default -> "§7Indisponible.";
+                case PRICE_UNKNOWN -> MiniMessage.miniMessage().deserialize("<red>Prix indisponible pour le moment.");
+                case LEVEL_TOO_LOW -> MiniMessage.miniMessage().deserialize("<red>Niveau insuffisant.");
+                case OUT_OF_STOCK -> MiniMessage.miniMessage().deserialize("<red>Rupture de stock.");
+                case COLLECT_FIRST_LOCKED -> MiniMessage.miniMessage().deserialize("<red>Objet non collecté.");
+                default -> MiniMessage.miniMessage().deserialize("<gray>Indisponible.");
             });
             m.addEnchant(org.bukkit.enchantments.Enchantment.LUCK_OF_THE_SEA, 1, true);
             m.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
@@ -139,15 +142,15 @@ public class GuiVariants {
         ItemStack it = new ItemStack(mat != null ? mat : Material.PAPER);
         ItemMeta m = it.getItemMeta();
         if (m != null) {
-            m.setDisplayName("§8« §f" + niceName + " §8»");
-            List<String> lore = new ArrayList<>();
-            lore.add("§7Indisponible: §c" + reasonToText(reason));
-            lore.add("§8" + id.getKey());
+            m.displayName(MiniMessage.miniMessage().deserialize("<dark_gray>« <white>" + niceName + " <dark_gray>»"));
+            List<Component> lore = new ArrayList<>();
+            lore.add(MiniMessage.miniMessage().deserialize("<gray>Indisponible: <red>" + reasonToText(reason)));
+            lore.add(MiniMessage.miniMessage().deserialize("<dark_gray>" + id.getKey()));
             if (reason == LockReason.COLLECT_FIRST_LOCKED) {
-                lore.add("");
-                lore.add("§eAstuce: Collectez cet objet pour le déverrouiller.");
+                lore.add(Component.empty());
+                lore.add(MiniMessage.miniMessage().deserialize("<yellow>Astuce: Collectez cet objet pour le déverrouiller."));
             }
-            m.setLore(lore);
+            m.lore(lore);
             // Add subtle glow to locked items
             m.addEnchant(org.bukkit.enchantments.Enchantment.LUCK_OF_THE_SEA, 1, true);
             m.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);

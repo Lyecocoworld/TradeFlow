@@ -18,11 +18,12 @@ public class EconomyDataUtil {
 
     /**
      * Update the economy data of a given economy data setting.
+     * Synchronized to prevent lost updates when called from virtual threads.
      *
      * @param key   The key of the economy data setting.
      * @param value The new value of the economy data setting.
      */
-    public void updateEconomyData(String key, double value) {
+    public synchronized void updateEconomyData(String key, double value) {
         double[] data = economyDataView.get(key);
         if (data == null) {
             data = new double[1];
@@ -33,11 +34,13 @@ public class EconomyDataUtil {
 
     /**
      * Increase the economy data of a given economy data setting.
+     * Synchronized to make the compound read-modify-write on the shared double[]
+     * atomic when called from virtual threads.
      *
      * @param key   The key of the economy data setting.
      * @param value The value to increase the economy data setting by.
      */
-    public void increaseEconomyData(String key, double value) {
+    public synchronized void increaseEconomyData(String key, double value) {
         double[] data = economyDataView.get(key);
         if (data == null) {
             data = new double[1];

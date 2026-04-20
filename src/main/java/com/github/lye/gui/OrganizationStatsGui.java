@@ -1,6 +1,10 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.data.Database;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
+import com.github.lye.pricing.service.PriceService;
 import com.github.lye.util.Format;
 import com.github.lye.util.EconomyUtil;
 import com.github.lye.data.Shop;
@@ -46,11 +50,11 @@ public class OrganizationStatsGui {
         double cash = EconomyUtil.getCentralBankBalance(plugin);
         
         // 2. Initial Capital (Config) - Base for ROI
-        double initial = plugin.getPluginSettings().getInitialCapital();
+        CentralBankStockManager bankMgr = plugin.getServices().get(CentralBankStockManager.class);
+        double initial = plugin.getServices().get(com.github.lye.config.settings.IPluginSettings.class).getInitialCapital();
         if (initial < 0) {
-            // Auto-mode: Initial Net Worth = Initial Cash + Initial Stock Value
-            double startupLiquidity = plugin.getCentralBankStockManager().calculateRequiredLiquidity();
-            initial = startupLiquidity + startupLiquidity; // Perfect 1:1 match
+            double startupLiquidity = bankMgr.calculateRequiredLiquidity();
+            initial = startupLiquidity + startupLiquidity;
         }
 
         // 3. Stock Value Calculation
@@ -58,11 +62,11 @@ public class OrganizationStatsGui {
         int totalUnits = 0;
         
         // Get latest prices from Service
-        com.github.lye.pricing.model.PriceSnapshot snapshot = plugin.getPriceService().getCurrentSnapshot();
-        Map<String, Shop> shops = plugin.getDatabase().getShops();
+        com.github.lye.pricing.model.PriceSnapshot snapshot = plugin.getServices().get(PriceService.class).getCurrentSnapshot();
+        Map<String, Shop> shops = plugin.getServices().get(Database.class).getShops();
         
         for (Shop shop : shops.values()) {
-            int currentStock = plugin.getCentralBankStockManager().getCurrentStock(shop);
+            int currentStock = bankMgr.getCurrentStock(shop);
             String name = shop.getName();
             
             com.github.lye.pricing.model.ItemId id = new com.github.lye.pricing.model.ItemId(name);
@@ -227,6 +231,6 @@ public class OrganizationStatsGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

@@ -4,6 +4,7 @@ import com.github.lye.data.Shop;
 import com.github.lye.util.Format;
 import com.github.lye.util.TradeFlowLogger;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -25,7 +26,7 @@ public class MapDBShopRepository implements ShopRepository {
         String lowerKey = key.toLowerCase();
         try {
             return shopsMap.get(lowerKey);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.severe("Could not deserialize shop " + lowerKey + ". The data may be corrupted.");
             return null;
         }
@@ -48,7 +49,7 @@ public class MapDBShopRepository implements ShopRepository {
 
     @Override
     public Map<String, Shop> getAllShops() {
-        return shopsMap;
+        return Collections.unmodifiableMap(shopsMap);
     }
 
     @Override

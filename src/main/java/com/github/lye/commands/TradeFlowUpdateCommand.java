@@ -7,6 +7,8 @@ import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
 import com.github.lye.config.Config;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 
 import com.github.lye.util.Format;
 
@@ -29,17 +31,19 @@ public class TradeFlowUpdateCommand extends BaseCommand implements CommandExecut
         }
 
         if (args.length > 0) {
-            plugin.getMessageService().sendInfoMessage(sender, getUsage(), null);
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, getUsage(), null);
             return true;
         }
 
         if (sender instanceof Player) {
             Player player = (Player) sender;
-            plugin.getMessageService().sendInfoMessage(player, plugin.getMessageSettings().getAdminPricesUpdating(), null);
-            plugin.recalculatePrices(); // ✅
-            player.sendMessage("§aAuto-pricing snapshot recomputed.");
+            IMessageService msgSvc = plugin.getServices().get(IMessageService.class);
+            IMessageSettings msgSettings = plugin.getServices().get(IMessageSettings.class);
+            msgSvc.sendInfoMessage(player, msgSettings.getAdminPricesUpdating(), null);
+            plugin.recalculatePrices();
+            Format.sendRawMessage(player, "<green>Auto-pricing snapshot recomputed.");
         } else {
-            plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getPlayersOnly(), null); // Use message key
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, plugin.getServices().get(IMessageSettings.class).getPlayersOnly(), null);
         }
         return true;
     }

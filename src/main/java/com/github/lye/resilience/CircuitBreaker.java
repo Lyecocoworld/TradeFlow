@@ -1,6 +1,5 @@
 package com.github.lye.resilience;
 
-import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,7 +28,6 @@ public class CircuitBreaker {
     private final String name;
     private final int failureThreshold;
     private final long openTimeoutMillis;
-    private final long halfOpenMaxCallDurationMillis;
 
     private final AtomicInteger failureCount = new AtomicInteger(0);
     private final AtomicInteger successCount = new AtomicInteger(0);
@@ -46,22 +44,9 @@ public class CircuitBreaker {
      * @param openTimeoutMillis how long to stay open before trying again
      */
     public CircuitBreaker(String name, int failureThreshold, long openTimeoutMillis) {
-        this(name, failureThreshold, openTimeoutMillis, 5000);
-    }
-
-    /**
-     * Creates a new circuit breaker.
-     *
-     * @param name the circuit breaker name
-     * @param failureThreshold the number of failures before opening
-     * @param openTimeoutMillis how long to stay open before trying again
-     * @param halfOpenMaxCallDurationMillis max time for half-open call
-     */
-    public CircuitBreaker(String name, int failureThreshold, long openTimeoutMillis, long halfOpenMaxCallDurationMillis) {
         this.name = name;
         this.failureThreshold = failureThreshold;
         this.openTimeoutMillis = openTimeoutMillis;
-        this.halfOpenMaxCallDurationMillis = halfOpenMaxCallDurationMillis;
     }
 
     /**
@@ -252,7 +237,6 @@ public class CircuitBreaker {
         private String name = "default";
         private int failureThreshold = 5;
         private long openTimeoutMillis = TimeUnit.SECONDS.toMillis(30);
-        private long halfOpenMaxCallDurationMillis = TimeUnit.SECONDS.toMillis(5);
 
         public Builder name(String name) {
             this.name = name;
@@ -269,13 +253,8 @@ public class CircuitBreaker {
             return this;
         }
 
-        public Builder halfOpenMaxCallDuration(long duration, TimeUnit unit) {
-            this.halfOpenMaxCallDurationMillis = unit.toMillis(duration);
-            return this;
-        }
-
         public CircuitBreaker build() {
-            return new CircuitBreaker(name, failureThreshold, openTimeoutMillis, halfOpenMaxCallDurationMillis);
+            return new CircuitBreaker(name, failureThreshold, openTimeoutMillis);
         }
     }
 

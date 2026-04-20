@@ -1,6 +1,7 @@
 package com.github.lye.redis;
 
 import com.github.lye.resilience.CircuitBreaker;
+import com.github.lye.resilience.DeadLetterQueue;
 import org.redisson.Redisson;
 import org.redisson.api.RBucket;
 import org.redisson.api.RScript;
@@ -27,6 +28,7 @@ public class RedissonRedisClient implements RedisClient {
     private final RedissonClient redisson;
     private final boolean enabled;
     private final CircuitBreaker circuitBreaker;
+    private final DeadLetterQueue deadLetterQueue;
     private static final Logger LOGGER = Logger.getLogger(RedissonRedisClient.class.getName());
 
     /**
@@ -42,6 +44,7 @@ public class RedissonRedisClient implements RedisClient {
         if (!enabled) {
             this.redisson = null;
             this.circuitBreaker = null;
+            this.deadLetterQueue = null;
             return;
         }
 
@@ -50,8 +53,9 @@ public class RedissonRedisClient implements RedisClient {
                 .name("redis")
                 .failureThreshold(5)
                 .openTimeout(30, TimeUnit.SECONDS)
-                .halfOpenMaxCallDuration(5, TimeUnit.SECONDS)
                 .build();
+
+        this.deadLetterQueue = new DeadLetterQueue(1000);
 
         Config config = new Config();
         String address = "redis://" + host + ":" + port;
@@ -88,6 +92,8 @@ public class RedissonRedisClient implements RedisClient {
             return;
         }
 
+        tryReplay();
+
         try {
             circuitBreaker.execute(() -> {
                 if (ttlMillis > 0) {
@@ -98,7 +104,8 @@ public class RedissonRedisClient implements RedisClient {
                 return null;
             });
         } catch (CircuitBreaker.CircuitBreakerOpenException e) {
-            LOGGER.warning("Circuit breaker OPEN while setting key '" + key + "' - skipping Redis write");
+            deadLetterQueue.enqueueSet(key, value, ttlMillis);
+            LOGGER.warning("Circuit breaker OPEN while setting key '" + key + "' - enqueued to dead-letter queue");
         } catch (Exception e) {
             LOGGER.warning("Redis error while setting key '" + key + "': " + e.getMessage());
         }
@@ -127,13 +134,16 @@ public class RedissonRedisClient implements RedisClient {
             return;
         }
 
+        tryReplay();
+
         try {
             circuitBreaker.execute(() -> {
                 redisson.getTopic(channel).publish(message);
                 return null;
             });
         } catch (CircuitBreaker.CircuitBreakerOpenException e) {
-            LOGGER.warning("Circuit breaker OPEN while publishing to '" + channel + "' - skipping Redis publish");
+            deadLetterQueue.enqueuePublish(channel, message);
+            LOGGER.warning("Circuit breaker OPEN while publishing to '" + channel + "' - enqueued to dead-letter queue");
         } catch (Exception e) {
             LOGGER.warning("Redis error while publishing to '" + channel + "': " + e.getMessage());
         }
@@ -146,14 +156,18 @@ public class RedissonRedisClient implements RedisClient {
         }
 
         try {
-            redisson.getTopic(channel).addListener(String.class, (ch, msg) -> {
-                try {
-                    listener.onMessage(ch.toString(), msg);
-                } catch (Exception e) {
-                    LOGGER.warning("Error in Redis message handler for channel '" + ch + "': " + e.getMessage());
-                }
+            circuitBreaker.execute(() -> {
+                redisson.getTopic(channel).addListener(String.class, (ch, msg) -> {
+                    try {
+                        listener.onMessage(ch.toString(), msg);
+                    } catch (Exception e) {
+                        LOGGER.warning("Error in Redis message handler for channel '" + ch + "': " + e.getMessage());
+                    }
+                });
+                LOGGER.info("Subscribed to Redis channel via Redisson: " + channel);
             });
-            LOGGER.info("Subscribed to Redis channel via Redisson: " + channel);
+        } catch (CircuitBreaker.CircuitBreakerOpenException e) {
+            LOGGER.warning("Circuit breaker OPEN while subscribing to '" + channel + "' - subscription deferred");
         } catch (Exception e) {
             LOGGER.warning("Redis error while subscribing to '" + channel + "': " + e.getMessage());
         }
@@ -228,25 +242,43 @@ public class RedissonRedisClient implements RedisClient {
 
     @Override
     public void close() {
+        if (deadLetterQueue != null && !deadLetterQueue.isEmpty()) {
+            LOGGER.info("Shutting down with " + deadLetterQueue.size() + " dead-letter entries still pending");
+            deadLetterQueue.clear();
+        }
         if (redisson != null && !redisson.isShutdown()) {
             redisson.shutdown();
         }
     }
 
-    /**
-     * Gets the circuit breaker for monitoring/management.
-     *
-     * @return the circuit breaker, or null if Redis is disabled
-     */
+    private void tryReplay() {
+        if (deadLetterQueue == null || deadLetterQueue.isEmpty()) {
+            return;
+        }
+        if (circuitBreaker != null && circuitBreaker.getState() != CircuitBreaker.State.CLOSED) {
+            return;
+        }
+
+        deadLetterQueue.replay(
+                setOp -> {
+                    if (setOp.ttlMillis > 0) {
+                        redisson.getBucket(setOp.key).set(setOp.value, setOp.ttlMillis, TimeUnit.MILLISECONDS);
+                    } else {
+                        redisson.getBucket(setOp.key).set(setOp.value);
+                    }
+                },
+                pubOp -> redisson.getTopic(pubOp.channel).publish(pubOp.message)
+        );
+    }
+
     public CircuitBreaker getCircuitBreaker() {
         return circuitBreaker;
     }
 
-    /**
-     * Gets the current circuit breaker metrics.
-     *
-     * @return metrics string, or "Redis disabled" if not applicable
-     */
+    public DeadLetterQueue getDeadLetterQueue() {
+        return deadLetterQueue;
+    }
+
     public String getCircuitBreakerMetrics() {
         if (circuitBreaker == null) {
             return "Redis disabled";

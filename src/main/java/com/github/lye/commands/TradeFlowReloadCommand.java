@@ -6,7 +6,10 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.data.Database;
+import com.github.lye.data.ShopUtil;
 
 import java.util.List;
 
@@ -27,14 +30,14 @@ public class TradeFlowReloadCommand extends BaseCommand {
             return true;
         }
 
-        plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminReloadingShops(), null);
+        plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, plugin.getServices().get(IMessageSettings.class).getAdminReloadingShops(), null);
         Database.acquireWriteLock();
         try {
-            plugin.getShopUtil().reload();
+            plugin.getServices().get(ShopUtil.class).reload();
         } finally {
             Database.releaseWriteLock();
         }
-        plugin.getMessageService().sendInfoMessage(sender, plugin.getMessageSettings().getAdminShopsReloaded(), null);
+        plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, plugin.getServices().get(IMessageSettings.class).getAdminShopsReloaded(), null);
         return true;
     }
 

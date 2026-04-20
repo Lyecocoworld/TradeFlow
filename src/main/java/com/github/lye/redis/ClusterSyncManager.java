@@ -73,7 +73,7 @@ public class ClusterSyncManager {
     public ClusterSyncManager(TradeFlow plugin, RedisClient redisClient) {
         this.plugin = plugin;
         this.redisClient = redisClient;
-        this.serverId = plugin.getPluginSettings().getRedisServerId();
+        this.serverId = plugin.getServices().get(com.github.lye.config.settings.IPluginSettings.class).getRedisServerId();
     }
 
     /**

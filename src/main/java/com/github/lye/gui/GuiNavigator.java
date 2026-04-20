@@ -48,8 +48,11 @@ public class GuiNavigator {
         // Set current GUI (hierarchical navigation)
         setCurrentGui(player, NavigationHistory.GuiIds.MAIN_MENU);
 
-        MainShopGui gui = new MainShopGui(plugin, this, state, plugin.getTradeLogger());
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        MainShopGui gui = new MainShopGui(plugin, this, state, plugin.getServices().getTradeFlowLogger());
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     // ==================== HIERARCHICAL NAVIGATION STATE ====================
@@ -83,8 +86,11 @@ public class GuiNavigator {
         setCurrentGui(player, NavigationHistory.GuiIds.SECTION);
         setSectionContext(player, sectionId);
 
-        SectionGui gui = new SectionGui(plugin, this, state, player, plugin.getTradeLogger(), plugin.getShopUtil(), plugin.getMessageService());
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        SectionGui gui = new SectionGui(plugin, this, state, player, plugin.getServices().getTradeFlowLogger(), plugin.getServices().get(com.github.lye.data.ShopUtil.class), plugin.getServices().get(com.github.lye.service.IMessageService.class));
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
@@ -100,7 +106,10 @@ public class GuiNavigator {
         setItemContext(player, itemId);
 
         PurchaseGui gui = new PurchaseGui(plugin, this, state, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
@@ -115,7 +124,10 @@ public class GuiNavigator {
         setEnchantContext(player, enchantShopName);
 
         EnchantLevelsGui gui = new EnchantLevelsGui(plugin, this, state, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     /**
@@ -131,7 +143,10 @@ public class GuiNavigator {
         setEnchantLevel(player, level);
 
         PurchaseEnchantGui gui = new PurchaseEnchantGui(plugin, this, state, player);
-        player.getScheduler().run(plugin, task -> gui.open(player), null);
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            gui.open(player);
+        }, null);
     }
 
     // ==================== CONTEXT STORAGE ====================

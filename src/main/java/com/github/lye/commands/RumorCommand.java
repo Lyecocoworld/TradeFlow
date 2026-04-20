@@ -2,6 +2,8 @@ package com.github.lye.commands;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.SubCommand;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.gameplay.rumors.RumorManager;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -17,17 +19,17 @@ public class RumorCommand extends SubCommand {
     public RumorCommand(TradeFlow plugin) {
         super("rumor", "tradeflow.rumor", false);
         this.plugin = plugin;
-        this.rumorManager = plugin.getRumorManager();
+        this.rumorManager = plugin.getServices().get(RumorManager.class);
     }
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (!sender.hasPermission(getPermission())) {
-            plugin.getMessageService().sendErrorMessage(sender, "permission-denied", null);
+            plugin.getServices().get(IMessageService.class).sendErrorMessage(sender, "permission-denied", null);
             return true;
         }
         if (!(sender instanceof Player)) {
-            plugin.getMessageService().sendErrorMessage(sender, "players-only", null);
+            plugin.getServices().get(IMessageService.class).sendErrorMessage(sender, "players-only", null);
             return true;
         }
         Player player = (Player) sender;

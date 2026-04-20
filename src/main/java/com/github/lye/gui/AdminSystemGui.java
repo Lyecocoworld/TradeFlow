@@ -1,6 +1,7 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -56,6 +57,7 @@ public class AdminSystemGui {
         );
         gui.setItem(11, new GuiItem(reload, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin reload");
         }));
@@ -69,6 +71,7 @@ public class AdminSystemGui {
         );
         gui.setItem(13, new GuiItem(recalculate, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.performCommand("tfadmin pricing recalculate");
             player.sendMessage(MiniMessage.miniMessage().deserialize("<gold>[TradeFlow] <white>Recalcul des prix lancé...</white>"));
             navigator.openMainMenu(player);
@@ -83,6 +86,7 @@ public class AdminSystemGui {
         );
         gui.setItem(15, new GuiItem(export, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin export");
         }));
@@ -98,6 +102,7 @@ public class AdminSystemGui {
         );
         gui.setItem(20, new GuiItem(importItem, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin import");
         }));
@@ -111,6 +116,7 @@ public class AdminSystemGui {
         );
         gui.setItem(22, new GuiItem(backup, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.performCommand("tfadmin backup");
             player.sendMessage(MiniMessage.miniMessage().deserialize("<gold>[TradeFlow] <white>Sauvegarde créée.</white>"));
         }));
@@ -124,6 +130,7 @@ public class AdminSystemGui {
         );
         gui.setItem(24, new GuiItem(reset, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin resetcollection");
         }));
@@ -155,6 +162,6 @@ public class AdminSystemGui {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 }

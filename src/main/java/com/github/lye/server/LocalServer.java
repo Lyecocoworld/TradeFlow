@@ -42,7 +42,9 @@ public class LocalServer {
      */
     public void start() {
         server = new Server();
+        String bindAddress = pluginSettings.getBindAddress();
         ServerConnector connector = new ServerConnector(server);
+        connector.setHost(bindAddress);
         connector.setPort(pluginSettings.getPort());
         server.setConnectors(new Connector[] { connector });
 
@@ -54,8 +56,8 @@ public class LocalServer {
 
         // API servlet
         context.addServlet(new ServletHolder(new ApiServlet(
-            plugin.getDatabase(),
-            plugin.getTradeLogger(),
+            plugin.getServices().get(com.github.lye.data.Database.class),
+            plugin.getServices().get(TradeFlowLogger.class),
             apiKey,
             plugin
         )), "/api/*");
@@ -74,7 +76,7 @@ public class LocalServer {
 
         try {
             server.start();
-            logger.config("Local server started on port " + pluginSettings.getPort());
+            logger.config("Local server started on " + bindAddress + ":" + pluginSettings.getPort());
         } catch (Exception e) {
             logger.severe("Failed to start local server!");
             logger.config(e.toString());
@@ -88,8 +90,7 @@ public class LocalServer {
         try {
             server.stop();
         } catch (Exception e) {
-            logger.severe("Failed to stop local server!");
-            logger.config(e.toString());
+            logger.severe("Failed to stop local server: " + e.getMessage());
         }
     }
 

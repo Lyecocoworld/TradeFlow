@@ -31,11 +31,44 @@ public final class ConfigValidator {
     public static void validatePluginSettings(IPluginSettings pluginSettings) {
         ValidationResult.Collector collector = ValidationResult.collector();
 
-        // Validate time period is positive
         collector.check(
             pluginSettings.getTimePeriod() > 0,
             "market.time-period must be positive"
         );
+
+        if (pluginSettings.isDatabaseEnabled()) {
+            collector.check(
+                pluginSettings.getDatabasePort() > 0 && pluginSettings.getDatabasePort() <= 65535,
+                "database.port must be between 1 and 65535"
+            );
+            collector.check(
+                pluginSettings.getDatabaseHost() != null && !pluginSettings.getDatabaseHost().isEmpty(),
+                "database.host must be set when database is enabled"
+            );
+            collector.check(
+                pluginSettings.getDatabasePoolSize() > 0,
+                "database.pool.size must be positive"
+            );
+            collector.check(
+                !pluginSettings.getDatabaseUser().startsWith("CHANGEME_"),
+                "database.user must be changed from default value"
+            );
+            collector.check(
+                !pluginSettings.getDatabasePassword().startsWith("CHANGEME_"),
+                "database.password must be changed from default value"
+            );
+        }
+
+        if (pluginSettings.isRedisEnabled()) {
+            collector.check(
+                pluginSettings.getRedisPort() > 0 && pluginSettings.getRedisPort() <= 65535,
+                "redis.single.port must be between 1 and 65535"
+            );
+            collector.check(
+                pluginSettings.getRedisHost() != null && !pluginSettings.getRedisHost().isEmpty(),
+                "redis.single.host must be set when redis is enabled"
+            );
+        }
 
         ValidationResult result = collector.build();
         if (result.isInvalid()) {

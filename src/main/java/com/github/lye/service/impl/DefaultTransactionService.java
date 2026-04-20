@@ -55,16 +55,16 @@ public class DefaultTransactionService implements ITransactionService {
         if (isBuy) {
             shop.addBuys(player.getUniqueId(), amount);
 
-            // Decrease Physical Stock
+            // Decrease Physical Stock (atomic — prevents lost updates from concurrent trades)
             if (shop.getMinBaseStock() > 0) {
-                shop.setCurrentStock(Math.max(0, shop.getCurrentStock() - amount));
+                shop.adjustStock(-amount);
             }
         } else {
             shop.addSells(player.getUniqueId(), amount);
 
-            // Increase Physical Stock
+            // Increase Physical Stock (atomic)
             if (shop.getMinBaseStock() > 0) {
-                shop.setCurrentStock(shop.getCurrentStock() + amount);
+                shop.adjustStock(amount);
             }
         }
 
@@ -97,6 +97,11 @@ public class DefaultTransactionService implements ITransactionService {
 
     @Override
     public void recordSellTransaction(UUID uuid, String itemName, Shop itemShop, int amount, double total, double price) {
+        recordSellTransaction(uuid, itemName, itemShop, amount, total, price, true);
+    }
+
+    @Override
+    public void recordSellTransaction(UUID uuid, String itemName, Shop itemShop, int amount, double total, double price, boolean triggerRecalc) {
         Transaction transaction = new Transaction(
                 price, amount, uuid, itemName, TransactionType.SELL);
         database.putTransaction(java.util.UUID.randomUUID().toString(), transaction);
@@ -105,14 +110,16 @@ public class DefaultTransactionService implements ITransactionService {
         economyDataUtil.increaseEconomyData("LOSS", loss * amount);
         itemShop.addSells(uuid, amount);
         
-        // Increase Physical Stock
+        // Increase Physical Stock (atomic — prevents lost updates from concurrent trades)
         if (itemShop.getMinBaseStock() > 0) {
-            itemShop.setCurrentStock(itemShop.getCurrentStock() + amount);
+            itemShop.adjustStock(amount);
         }
         
         shopUtil.putShop(itemName, itemShop);
 
-        // Trigger price update
-        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> plugin.recalculatePrices());
+        // Trigger price update only when requested (avoids N+1 recalculation in batch scenarios)
+        if (triggerRecalc) {
+            plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> plugin.recalculatePrices());
+        }
     }
 }

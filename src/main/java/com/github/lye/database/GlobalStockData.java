@@ -63,8 +63,9 @@ public class GlobalStockData implements GlobalStockRepository {
         String sql = "INSERT INTO tradeflow_global_stock (item_name, sold_count, reset_timestamp) " +
                      "VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE sold_count=?, reset_timestamp=?;";
 
-        if (plugin.getBatchWriteOptimizer() != null) {
-            plugin.getBatchWriteOptimizer().queue(sql, itemName, count, timestamp, count, timestamp);
+        com.github.lye.database.BatchWriteOptimizer bwo = plugin.getBootstrap().getDatabaseBootstrap().getBatchWriteOptimizer();
+        if (bwo != null) {
+            bwo.queue(sql, itemName, count, timestamp, count, timestamp);
         } else {
             plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
                 try (Connection conn = connector.getConnection();

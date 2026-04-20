@@ -2,12 +2,15 @@ package com.github.lye.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
+import com.github.lye.events.EconomicEventManager;
 import com.github.lye.redis.messages.*;
 import com.github.lye.pricing.model.ItemId;
 import com.github.lye.pricing.model.PriceSnapshot;
-import org.bukkit.Bukkit;
-import com.github.lye.events.EconomicEventManager;
+import com.github.lye.pricing.service.PriceService;
+import com.github.lye.config.settings.IPluginSettings;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,19 +27,16 @@ public class RedisManager {
         this.plugin = plugin;
         this.redisClient = redisClient;
         this.objectMapper = new ObjectMapper();
-        this.serverId = plugin.getPluginSettings().getRedisServerId();
+        this.serverId = plugin.getServices().get(IPluginSettings.class).getRedisServerId();
         
-        if (redisClient != null && redisClient.isEnabled()) {
-            startHeartbeat();
-        }
+        // Heartbeat publishing removed — ClusterSyncManager handles all heartbeat,
+        // server discovery, and leader election via "tradeflow:cluster:heartbeat".
     }
 
     public void registerSubscriptions() {
         if (redisClient == null || !redisClient.isEnabled()) return;
 
-        String channelPrices = plugin.getPluginSettings().getRedisChannelPrices();
-        String channelGlobal = plugin.getPluginSettings().getRedisChannelGlobal();
-        String channelHeartbeat = plugin.getPluginSettings().getRedisChannelHeartbeat();
+        String channelPrices = plugin.getServices().get(IPluginSettings.class).getRedisChannelPrices();
 
         redisClient.subscribe(channelPrices, (channel, message) -> {
             try {
@@ -49,22 +49,16 @@ public class RedisManager {
 
         redisClient.subscribe("tradeflow:stock-updates", (channel, message) -> {
             try {
-                if (plugin.getCentralBankStockManager() == null) return;
+                if (plugin.getServices().get(CentralBankStockManager.class) == null) return;
                 StockUpdateMessage update = objectMapper.readValue(message, StockUpdateMessage.class);
-                plugin.getCentralBankStockManager().applyExternalSale(update.getItem(), update.getDelta());
+                plugin.getServices().get(CentralBankStockManager.class).applyExternalSale(update.getItem(), update.getDelta());
             } catch (Exception e) {
                 plugin.getLogger().log(Level.WARNING, "[Redis] Failed to process stock update.", e);
             }
         });
 
-        redisClient.subscribe(channelHeartbeat, (channel, message) -> {
-            try {
-                HeartbeatMessage msg = objectMapper.readValue(message, HeartbeatMessage.class);
-                if (!msg.getServerId().equals(this.serverId)) {
-                    plugin.getLogger().fine("[Redis] Remote Server Heartbeat: " + msg.getServerId() + " (TPS: " + msg.getTps() + ")");
-                }
-            } catch (Exception ignored) {}
-        });
+        // Heartbeat subscription removed — ClusterSyncManager handles all server
+        // discovery via its own heartbeat system on "tradeflow:cluster:heartbeat".
 
         // Event update subscription — applies remote economic events
         redisClient.subscribe("tradeflow:event-updates", (channel, message) -> {
@@ -74,7 +68,7 @@ public class RedisManager {
                 if (this.serverId != null && this.serverId.equals(msg.getServerId())) {
                     return;
                 }
-                EconomicEventManager eventManager = plugin.getEconomicEventManager();
+                EconomicEventManager eventManager = plugin.getServices().get(EconomicEventManager.class);
                 if (eventManager != null) {
                     eventManager.applyRemoteEventUpdate(msg);
                 }
@@ -89,7 +83,7 @@ public class RedisManager {
         if (prices == null || prices.isEmpty()) return;
 
         com.github.lye.util.FoliaSchedulers.runGlobal(plugin, () -> {
-            PriceSnapshot currentSnapshot = plugin.getPriceService().getCurrentSnapshot();
+            PriceSnapshot currentSnapshot = plugin.getServices().get(PriceService.class).getCurrentSnapshot();
             Map<ItemId, Double> newPrices = new HashMap<>();
             if (currentSnapshot != null) newPrices.putAll(currentSnapshot.getPrices());
 
@@ -97,36 +91,16 @@ public class RedisManager {
                 String itemKey = entry.getKey();
                 Double price = entry.getValue();
 
-                Shop shop = plugin.getLoadedShops().get(itemKey);
+                Shop shop = plugin.getServices().get(Database.class).getShops().get(itemKey);
                 if (shop != null) {
                     shop.setPrice(price);
-                    plugin.getLoadedShops().put(itemKey, shop);
                 }
                 newPrices.put(new ItemId(itemKey), price);
             }
 
             if (currentSnapshot != null) {
-                plugin.getPriceService().updatePriceSnapshot(new PriceSnapshot(newPrices, currentSnapshot.getBreakdowns()));
+                plugin.getServices().get(PriceService.class).updatePriceSnapshot(new PriceSnapshot(newPrices, currentSnapshot.getBreakdowns()));
             }
         });
-    }
-
-    private void startHeartbeat() {
-        plugin.getServer().getAsyncScheduler().runAtFixedRate(plugin, task -> {
-            try {
-                // Capture player count on region thread before doing IO
-                final int onlineCount = Bukkit.getOnlinePlayers().size();
-                HeartbeatMessage msg = new HeartbeatMessage(
-                    serverId,
-                    System.currentTimeMillis(),
-                    20.0,
-                    onlineCount
-                );
-                String payload = objectMapper.writeValueAsString(msg);
-                redisClient.publish(plugin.getPluginSettings().getRedisChannelHeartbeat(), payload);
-            } catch (Exception e) {
-                plugin.getLogger().warning("[Redis] Heartbeat failed: " + e.getMessage());
-            }
-        }, 5000L, 5000L, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 }

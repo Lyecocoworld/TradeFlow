@@ -1,6 +1,9 @@
 package com.github.lye.database;
 
 import java.sql.SQLException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -98,6 +101,65 @@ public final class RetryableOperation {
             operation.execute();
             return null;
         });
+    }
+
+    /**
+     * Async version of executeWithRetry — safe for Folia region threads.
+     * <p>
+     * Uses {@link CompletableFuture#delayedExecutor} for backoff delays instead of
+     * {@code Thread.sleep()}, so it never blocks the calling thread.</p>
+     *
+     * @param operation the operation to execute
+     * @param maxRetries maximum number of retry attempts
+     * @param <T> the return type
+     * @return a {@link CompletableFuture} that completes with the result or an exception
+     */
+    public static <T> CompletableFuture<T> executeWithRetryAsync(SqlOperation<T> operation, int maxRetries) {
+        return executeWithRetryAsync(operation, maxRetries, Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "TradeFlow-RetryAsync");
+            t.setDaemon(true);
+            return t;
+        }));
+    }
+
+    /**
+     * Async version with custom executor for retry scheduling.
+     *
+     * @param operation the operation to execute
+     * @param maxRetries maximum number of retry attempts
+     * @param executor the executor used for retry scheduling
+     * @param <T> the return type
+     * @return a {@link CompletableFuture} that completes with the result or an exception
+     */
+    public static <T> CompletableFuture<T> executeWithRetryAsync(SqlOperation<T> operation, int maxRetries, Executor executor) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        attemptAsync(operation, maxRetries, 0, future, executor);
+        return future;
+    }
+
+    private static <T> void attemptAsync(SqlOperation<T> operation, int maxRetries, int attempt,
+                                          CompletableFuture<T> future, Executor executor) {
+        try {
+            T result = operation.execute();
+            future.complete(result);
+        } catch (SQLException e) {
+            if (!isRetryable(e)) {
+                future.completeExceptionally(e);
+                return;
+            }
+            int nextAttempt = attempt + 1;
+            if (nextAttempt > maxRetries) {
+                future.completeExceptionally(new SQLException("Operation failed after " + (maxRetries + 1) + " attempts", e));
+                return;
+            }
+
+            long delayMs = Math.min(BASE_DELAY_MS * (1L << nextAttempt), MAX_DELAY_MS);
+            LOGGER.warning("Database operation failed (attempt " + nextAttempt + "/" + (maxRetries + 1) +
+                    "), retrying in " + delayMs + "ms: " + e.getMessage());
+
+            CompletableFuture.delayedExecutor(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS, executor)
+                    .execute(() -> attemptAsync(operation, maxRetries, nextAttempt, future, executor));
+        }
     }
 
     /**

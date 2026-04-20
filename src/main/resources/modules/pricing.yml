@@ -70,12 +70,21 @@ tax:
 # Paramètres de la Banque Centrale (valeurs par défaut)
 central-bank:
   public-order-bonus: 0.20        # Bonus de vente quand le stock < 25% de l'idéal
+  public-order-threshold: 0.25    # Ratio de stock en dessous duquel les Commandes Publiques s'activent (25%)
   expansion-threshold: 1.50       # Ratio de réserve au-dessus duquel la banque est en EXPANSION
   austerity-threshold: 0.50       # Ratio de réserve en-dessous duquel la banque est en AUSTÉRITÉ
   activity-alpha: 0.10            # Facteur de lissage exponentiel pour le suivi d'activité
   default-daily-quota: 64         # Quota journalier par joueur par défaut (calcul stock)
   default-population: 100         # Population cible par défaut (calcul stock)
   default-initial-stock: 1280     # Stock initial par défaut quand aucune donnée n'existe
+  bootstrap-threshold: 100.0      # Solde en dessous duquel la banque est considérée non-initialisée (bypass solvabilité)
+  saturation-multiplier: 5.0      # Multiple du stock idéal au delà duquel la banque refuse d'acheter (saturation)
+
+  # Paramètres du spread dynamique (variation de prix basée sur l'activité)
+  dynamic-spread:
+    activity-divisor: 5000.0      # Diviseur du score d'activité pour calculer le spread de base
+    max-base: 0.5                 # Spread de base maximum avant application de la politique
+    max-final: 0.8                # Spread final maximum (après multiplicateur de politique)
 
 # Paramètres des Événements Économiques
 events:

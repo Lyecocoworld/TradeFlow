@@ -6,12 +6,14 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
  * Cache manager for Shop objects.
  * <p>
- * Uses multi-level caching (In-memory L1 + Redis L2) to reduce database load
+ * Uses Caffeine (L1) + Redis (L2) caching with size-based eviction,
+ * statistics collection, and async loading support to reduce database load
  * and improve cross-server synchronization.</p>
  *
  * @author lye
@@ -22,8 +24,9 @@ public class ShopCache {
     private static final String CACHE_PREFIX = "tf:shop:";
     private static final long LOCAL_TTL_MS = 5000;  // 5 seconds
     private static final long REDIS_TTL_MS = 60000; // 1 minute
+    private static final long MAXIMUM_SIZE = 1000;
 
-    private final MultiLevelCache<String, Shop> cache;
+    private final CaffeineCache<String, Shop> cache;
     private final Gson gson;
     private final Type shopType;
 
@@ -31,13 +34,16 @@ public class ShopCache {
         this.gson = gson;
         this.shopType = new TypeToken<Shop>() {}.getType();
 
-        this.cache = MultiLevelCache.<String, Shop>builder()
+        this.cache = CaffeineCache.<String, Shop>builder()
                 .redisClient(redisClient)
                 .cachePrefix(CACHE_PREFIX)
+                .keySerializer(Function.identity())
                 .valueSerializer(shop -> gson.toJson(shop))
                 .valueDeserializer(json -> gson.fromJson(json, shopType))
                 .localTtlMillis(LOCAL_TTL_MS)
                 .redisTtlMillis(REDIS_TTL_MS)
+                .maximumSize(MAXIMUM_SIZE)
+                .recordStats(true)
                 .build();
     }
 
@@ -50,6 +56,19 @@ public class ShopCache {
      */
     public Shop get(String shopKey, Function<String, Shop> loader) {
         return cache.get(shopKey, loader);
+    }
+
+    /**
+     * Gets a shop from cache asynchronously, offloading Redis calls to a background thread.
+     * <p>
+     * This is the preferred method to call from Folia region threads.
+     *
+     * @param shopKey the shop key
+     * @param loader the function to load the shop from database if not cached
+     * @return a CompletableFuture with the shop, or null if not found
+     */
+    public CompletableFuture<Shop> getAsync(String shopKey, Function<String, Shop> loader) {
+        return cache.getAsync(shopKey, loader);
     }
 
     /**

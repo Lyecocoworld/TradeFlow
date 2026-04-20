@@ -31,7 +31,7 @@ public class PlayerShopState {
         this.reset();
     }
 
-    public void reset() {
+    public void goToMain() {
         this.screen = ShopScreen.MAIN;
         this.sectionName = null;
         this.itemName = null;
@@ -40,13 +40,8 @@ public class PlayerShopState {
         this.amount = 1;
     }
 
-    public void goToMain() {
-        this.screen = ShopScreen.MAIN;
-        this.sectionName = null;
-        this.itemName = null;
-        this.enchantLevel = 0;
-        this.page = 0;
-        this.amount = 1;
+    public void reset() {
+        goToMain();
     }
 
     public void goToSection(String sectionName) {

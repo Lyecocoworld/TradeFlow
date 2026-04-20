@@ -184,7 +184,7 @@ public class DefaultRecipeFactory implements RecipeFactory {
         for (String recipeString : recipeStrings) {
             try {
                 customRecipes.add(parseCompact(recipeString));
-            } catch (Exception e) {
+            } catch (IllegalArgumentException e) {
                 auditService.logWarning("Error parsing custom recipe '" + recipeString + ": " + e.getMessage());
             }
         }

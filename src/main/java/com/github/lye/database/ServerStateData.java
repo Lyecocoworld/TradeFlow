@@ -7,12 +7,21 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
 /**
  * MySQL-backed implementation of {@link ServerStateRepository}.
+ * <p>
+ * All JDBC operations run on a dedicated virtual-thread executor so that
+ * no Folia region thread is ever blocked by database I/O.
  */
 public class ServerStateData implements ServerStateRepository {
+
+    /** Shared virtual-thread executor for all JDBC operations in this class. */
+    private static final ExecutorService DB_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
     private final TradeFlow plugin;
     private final MySQLConnector connector;
@@ -37,52 +46,76 @@ public class ServerStateData implements ServerStateRepository {
     }
 
     @Override
-    public String getState(String key) {
-        String query = "SELECT state_value FROM tradeflow_server_state WHERE state_key = ?";
-        try (Connection conn = connector.getConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setString(1, key);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getString("state_value");
+    public CompletableFuture<String> getState(String key) {
+        return CompletableFuture.supplyAsync(() -> {
+            String query = "SELECT state_value FROM tradeflow_server_state WHERE state_key = ?";
+            try (Connection conn = connector.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setString(1, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("state_value");
+                    }
                 }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Could not get state for key: " + key, e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not get state for key: " + key, e);
-        }
-        return null;
+            return null;
+        }, DB_EXECUTOR);
     }
 
     @Override
-    public void setState(String key, String value) {
-        String query = "INSERT INTO tradeflow_server_state (state_key, state_value) " +
-                "VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE state_value=?;";
+    public CompletableFuture<Void> setState(String key, String value) {
+        return CompletableFuture.runAsync(() -> {
+            String query = "INSERT INTO tradeflow_server_state (state_key, state_value) " +
+                    "VALUES (?, ?) " +
+                    "ON DUPLICATE KEY UPDATE state_value=?;";
 
-        try (Connection conn = connector.getConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
+            try (Connection conn = connector.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(query)) {
 
-            ps.setString(1, key);
-            ps.setString(2, value);
-            ps.setString(3, value);
+                ps.setString(1, key);
+                ps.setString(2, value);
+                ps.setString(3, value);
 
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not set state for key: " + key, e);
-        }
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Could not set state for key: " + key, e);
+            }
+        }, DB_EXECUTOR);
     }
 
-    public double getMonetaryReserve() {
-        String val = getState("monetary_reserve");
-        if (val == null) return -1;
-        try {
-            return Double.parseDouble(val);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
+    /**
+     * Reads the monetary reserve value asynchronously.
+     *
+     * @return future resolving to the reserve value, or -1 if absent / parse error
+     */
+    public CompletableFuture<Double> getMonetaryReserve() {
+        return getState("monetary_reserve").thenApply(val -> {
+            if (val == null) return -1.0;
+            try {
+                return Double.parseDouble(val);
+            } catch (NumberFormatException e) {
+                return -1.0;
+            }
+        });
     }
 
-    public void saveMonetaryReserve(double amount) {
-        setState("monetary_reserve", String.valueOf(amount));
+    /**
+     * Persists the monetary reserve value asynchronously.
+     *
+     * @param amount the reserve amount to save
+     * @return future that completes when the write is done
+     */
+    public CompletableFuture<Void> saveMonetaryReserve(double amount) {
+        return setState("monetary_reserve", String.valueOf(amount));
+    }
+
+    /**
+     * Shuts down the virtual-thread executor used for database operations.
+     * Should be called during plugin disable.
+     */
+    public static void shutdownExecutor() {
+        DB_EXECUTOR.shutdown();
     }
 }

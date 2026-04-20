@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
@@ -27,7 +29,7 @@ public class EconomicEventManager {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final TradeFlow plugin;
-    private final ServerStateRepository serverStateRepository; // Can be null
+    private final ServerStateRepository serverStateRepository;
     private final IEconomicEventSettings economicEventSettings;
     private final IPricingSettings pricingSettings;
     private final List<EconomicEvent> possibleEvents = new ArrayList<>();
@@ -35,11 +37,14 @@ public class EconomicEventManager {
     private final RedisClient redisClient;
     private final String serverId;
 
-    // In-memory state for non-database mode
     private EconomicEvent activeEvent = null;
     private int timeToNextEvent;
     private long localEndTime;
     private net.kyori.adventure.bossbar.BossBar bossBar;
+
+    private final AtomicReference<String> cachedActiveEvent = new AtomicReference<>(null);
+    private final AtomicReference<Long> cachedEndTimestamp = new AtomicReference<>(0L);
+    private final AtomicReference<Long> cachedNextEventTs = new AtomicReference<>(0L);
 
     public EconomicEventManager(TradeFlow plugin,
                                 ServerStateRepository serverStateRepository,
@@ -51,13 +56,39 @@ public class EconomicEventManager {
         this.economicEventSettings = economicEventSettings;
         this.pricingSettings = pricingSettings;
         this.redisClient = redisClient;
-        this.serverId = plugin.getPluginSettings().getRedisServerId();
+        this.serverId = plugin.getServices().get(com.github.lye.config.settings.IPluginSettings.class).getRedisServerId();
         loadEvents();
 
         if (serverStateRepository == null) {
-            // Schedule first event for non-db mode
             scheduleNextEventLocally();
+        } else {
+            refreshStateCache();
         }
+    }
+
+    private void refreshStateCache() {
+        if (serverStateRepository == null) return;
+
+        CompletableFuture<String> activeFut = serverStateRepository.getState(KEY_ACTIVE_EVENT);
+        CompletableFuture<String> endFut = serverStateRepository.getState(KEY_EVENT_END_TS);
+        CompletableFuture<String> nextFut = serverStateRepository.getState(KEY_NEXT_EVENT_TS);
+
+        CompletableFuture.allOf(activeFut, endFut, nextFut)
+                .thenRun(() -> {
+                    try {
+                        cachedActiveEvent.set(activeFut.join());
+                        String endStr = endFut.join();
+                        cachedEndTimestamp.set(endStr != null ? Long.parseLong(endStr) : 0L);
+                        String nextStr = nextFut.join();
+                        cachedNextEventTs.set(nextStr != null ? Long.parseLong(nextStr) : 0L);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("[Events] Failed to refresh state cache: " + e.getMessage());
+                    }
+                })
+                .exceptionally(ex -> {
+                    plugin.getLogger().warning("[Events] State cache refresh failed: " + ex.getMessage());
+                    return null;
+                });
     }
 
     private void updateBossBar(EconomicEvent event, long endTime) {
@@ -76,13 +107,12 @@ public class EconomicEventManager {
             return;
         }
         
-        float progress = (float) timeLeft / (event.getDuration() * 50f); // Duration is ticks * 50ms
+        float progress = (float) timeLeft / (event.getDuration() * 50f);
         progress = Math.max(0.0f, Math.min(1.0f, progress));
         
         bossBar.name(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(event.getDisplay() + " <gray>(" + (timeLeft / 1000) + "s)"));
         bossBar.progress(progress);
         
-        // Show to all players
         for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
             p.showBossBar(bossBar);
         }
@@ -104,14 +134,12 @@ public class EconomicEventManager {
             return;
         }
 
-            // plugin.getLogger().info("Keys found in economic events section: " + eventsSection.getKeys(false).toString());
         for (String key : eventsSection.getKeys(false)) {
             ConfigurationSection eventConfig = eventsSection.getConfigurationSection(key);
             if (eventConfig != null) {
                 possibleEvents.add(new EconomicEvent(eventConfig));
             }
         }
-        // plugin.getLogger().info("Loaded " + possibleEvents.size() + " economic events.");
     }
 
     public void tick() {
@@ -126,7 +154,6 @@ public class EconomicEventManager {
         if (activeEvent != null) {
             activeEvent.tick();
             
-            // Visual update
             updateBossBar(activeEvent, localEndTime);
             
             if (activeEvent.isFinished()) {
@@ -139,8 +166,6 @@ public class EconomicEventManager {
             hideBossBar();
             timeToNextEvent--;
             if (timeToNextEvent <= 0) {
-                // If a manual event was started, timeToNextEvent would be -1.
-                // Reset it for normal scheduling only if no event is active.
                 if (activeEvent == null) {
                     startRandomEconomicEvent();
                 }
@@ -150,11 +175,9 @@ public class EconomicEventManager {
 
     private void tickDatabaseMode() {
         long currentTime = System.currentTimeMillis();
-        String activeEventName = serverStateRepository.getState(KEY_ACTIVE_EVENT);
-        String endTimeStr = serverStateRepository.getState(KEY_EVENT_END_TS);
-        long endTime = endTimeStr == null ? 0 : Long.parseLong(endTimeStr);
+        String activeEventName = cachedActiveEvent.get();
+        long endTime = cachedEndTimestamp.get();
 
-        // Check if an event is currently active and should end
         if (activeEventName != null && !activeEventName.isEmpty()) {
             EconomicEvent event = findEventByName(activeEventName);
             if (event != null) {
@@ -166,67 +189,73 @@ public class EconomicEventManager {
                 if (event != null) {
                     Bukkit.broadcast(MiniMessage.miniMessage().deserialize(event.getEndMessage()));
                 }
+                cachedActiveEvent.set(null);
+                cachedEndTimestamp.set(0L);
                 serverStateRepository.setState(KEY_ACTIVE_EVENT, "");
                 serverStateRepository.setState(KEY_EVENT_END_TS, "0");
                 publishEventUpdate(activeEventName, "ended");
-                // Schedule the next event
                 long nextEventTime = currentTime + ThreadLocalRandom.current().nextLong(pricingSettings.getEventMinIntervalMs(), pricingSettings.getEventMaxIntervalMs() + 1);
+                cachedNextEventTs.set(nextEventTime);
                 serverStateRepository.setState(KEY_NEXT_EVENT_TS, String.valueOf(nextEventTime));
             }
         } else {
             hideBossBar();
-            // Check if a new event should start
-            String nextTimeStr = serverStateRepository.getState(KEY_NEXT_EVENT_TS);
-            long nextTime = nextTimeStr == null ? 0 : Long.parseLong(nextTimeStr);
+            long nextTime = cachedNextEventTs.get();
 
-            if (nextTime == 0) { // First time ever, schedule one
+            if (nextTime == 0) {
                 long nextEventTime = currentTime + ThreadLocalRandom.current().nextLong(pricingSettings.getEventMinIntervalMs(), pricingSettings.getEventMaxIntervalMs() + 1);
+                cachedNextEventTs.set(nextEventTime);
                 serverStateRepository.setState(KEY_NEXT_EVENT_TS, String.valueOf(nextEventTime));
             } else if (currentTime >= nextTime) {
                 startRandomEconomicEvent();
             }
         }
+
+        refreshStateCache();
     }
 
     private void scheduleNextEventLocally() {
         int minSec = (int) (pricingSettings.getEventMinIntervalMs() / 1000);
         int maxSec = (int) (pricingSettings.getEventMaxIntervalMs() / 1000) + 1;
-        this.timeToNextEvent = ThreadLocalRandom.current().nextInt(minSec, maxSec); // Configurable interval in seconds
+        this.timeToNextEvent = ThreadLocalRandom.current().nextInt(minSec, maxSec);
     }
 
     private boolean startEconomicEventLocally(EconomicEvent eventToStart) {
-        // End any currently active local event first (if a new one is being forced)
-        if (activeEvent != null && activeEvent != eventToStart) { // Only end if different event is starting
+        if (activeEvent != null && activeEvent != eventToStart) {
             Bukkit.broadcast(MiniMessage.miniMessage().deserialize(activeEvent.getEndMessage()));
         }
         this.activeEvent = eventToStart;
         this.activeEvent.start();
         this.localEndTime = System.currentTimeMillis() + (eventToStart.getDuration() * 50L);
         Bukkit.broadcast(MiniMessage.miniMessage().deserialize(activeEvent.getStartMessage()));
-        this.timeToNextEvent = -1; // Force immediate tick for next event processing if desired, or set to a small value
+        this.timeToNextEvent = -1;
         return true;
     }
 
     private boolean startEconomicEventDatabase(EconomicEvent eventToStart) {
         long currentTime = System.currentTimeMillis();
-        long endTime = currentTime + (eventToStart.getDuration() * 50); // duration is in ticks
+        long endTime = currentTime + (eventToStart.getDuration() * 50);
 
-        // Check if an event is currently active and end it before starting a new one
-        String currentActiveEventName = serverStateRepository.getState(KEY_ACTIVE_EVENT);
+        String currentActiveEventName = cachedActiveEvent.get();
         if (currentActiveEventName != null && !currentActiveEventName.isEmpty() && !currentActiveEventName.equalsIgnoreCase(eventToStart.getName())) {
             EconomicEvent currentlyActiveEvent = findEventByName(currentActiveEventName);
             if (currentlyActiveEvent != null) {
                 Bukkit.broadcast(MiniMessage.miniMessage().deserialize(currentlyActiveEvent.getEndMessage()));
             }
+            cachedActiveEvent.set(null);
+            cachedEndTimestamp.set(0L);
             serverStateRepository.setState(KEY_ACTIVE_EVENT, "");
             serverStateRepository.setState(KEY_EVENT_END_TS, "0");
             publishEventUpdate(currentActiveEventName, "ended");
-            hideBossBar(); // Ensure UI is cleared
+            hideBossBar();
         }
 
+        cachedActiveEvent.set(eventToStart.getName());
+        cachedEndTimestamp.set(endTime);
+        cachedNextEventTs.set(0L);
         serverStateRepository.setState(KEY_ACTIVE_EVENT, eventToStart.getName());
         serverStateRepository.setState(KEY_EVENT_END_TS, String.valueOf(endTime));
-        serverStateRepository.setState(KEY_NEXT_EVENT_TS, "0"); // Clear the next event trigger
+        serverStateRepository.setState(KEY_NEXT_EVENT_TS, "0");
 
         Bukkit.broadcast(MiniMessage.miniMessage().deserialize(eventToStart.getStartMessage()));
         publishEventUpdate(eventToStart.getName(), "started");
@@ -257,12 +286,41 @@ public class EconomicEventManager {
         return startEconomicEvent(eventToStart);
     }
 
-    private boolean startEconomicEvent(EconomicEvent eventToStart) {
-        // Clear scheduled next event as one is starting now
+    public boolean stopCurrentEvent() {
         if (serverStateRepository != null) {
+            String activeEventName = cachedActiveEvent.get();
+            if (activeEventName == null || activeEventName.isEmpty()) {
+                return false;
+            }
+            EconomicEvent event = findEventByName(activeEventName);
+            hideBossBar();
+            if (event != null) {
+                Bukkit.broadcast(MiniMessage.miniMessage().deserialize(event.getEndMessage()));
+            }
+            cachedActiveEvent.set(null);
+            cachedEndTimestamp.set(0L);
+            serverStateRepository.setState(KEY_ACTIVE_EVENT, "");
+            serverStateRepository.setState(KEY_EVENT_END_TS, "0");
+            publishEventUpdate(activeEventName, "ended");
+            return true;
+        } else {
+            if (activeEvent == null) {
+                return false;
+            }
+            hideBossBar();
+            Bukkit.broadcast(MiniMessage.miniMessage().deserialize(activeEvent.getEndMessage()));
+            activeEvent = null;
+            scheduleNextEventLocally();
+            return true;
+        }
+    }
+
+    private boolean startEconomicEvent(EconomicEvent eventToStart) {
+        if (serverStateRepository != null) {
+            cachedNextEventTs.set(0L);
             serverStateRepository.setState(KEY_NEXT_EVENT_TS, "0");
         } else {
-            this.timeToNextEvent = -1; // Indicate no scheduled next event for local mode
+            this.timeToNextEvent = -1;
         }
 
         if (serverStateRepository != null) {
@@ -274,7 +332,7 @@ public class EconomicEventManager {
 
     public EconomicEvent getActiveEvent() {
         if (serverStateRepository != null) {
-            String activeEventName = serverStateRepository.getState(KEY_ACTIVE_EVENT);
+            String activeEventName = cachedActiveEvent.get();
             return findEventByName(activeEventName);
         } else {
             return activeEvent;
@@ -329,18 +387,7 @@ public class EconomicEventManager {
         }
     }
 
-    /**
-     * Applies a remote event update received from another server via Redis pub/sub.
-     * <p>
-     * Skips messages originating from this server (deduplication by serverId).
-     * When a remote "started" event arrives, cancels any local event and sets
-     * the active event to the received one. When "ended" arrives, clears the
-     * active event.
-     *
-     * @param message the deserialized event update message
-     */
     public void applyRemoteEventUpdate(com.github.lye.redis.messages.EventUpdateMessage message) {
-        // Deduplication: skip self-published messages
         if (serverId != null && serverId.equals(message.getServerId())) {
             return;
         }
@@ -348,7 +395,6 @@ public class EconomicEventManager {
         plugin.getServer().getGlobalRegionScheduler().execute(plugin, () -> {
             try {
                 if ("started".equals(message.getState())) {
-                    // Cancel any locally active event first
                     if (activeEvent != null) {
                         hideBossBar();
                     }

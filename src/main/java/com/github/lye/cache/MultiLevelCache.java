@@ -4,6 +4,7 @@ import com.github.lye.redis.RedisClient;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -48,7 +49,63 @@ public class MultiLevelCache<K, V> {
     }
 
     /**
+     * Gets a value from cache asynchronously, offloading Redis calls to a background thread.
+     * This is the preferred method to call from Folia region threads.
+     *
+     * @param key the cache key
+     * @param loader the function to load the value if not cached
+     * @return a future that completes with the cached value, or null if loader returns null
+     */
+    public <V2 extends V> CompletableFuture<V2> getAsync(K key, Function<K, V2> loader) {
+        Objects.requireNonNull(key, "key");
+
+        // L1: Check local cache (with TTL) — no Redis needed, can check on current thread
+        CacheEntry<V> entry = localCache.get(key);
+        if (entry != null && !entry.isExpired()) {
+            @SuppressWarnings("unchecked")
+            CompletableFuture<V2> result = CompletableFuture.completedFuture((V2) entry.value());
+            return result;
+        }
+
+        // Offload L2 (Redis) + L3 (loader) to a background thread — never block a region thread
+        return CompletableFuture.supplyAsync(() -> {
+            // Re-check L1 in case another thread populated it
+            CacheEntry<V> freshEntry = localCache.get(key);
+            if (freshEntry != null && !freshEntry.isExpired()) {
+                @SuppressWarnings("unchecked")
+                V2 v = (V2) freshEntry.value();
+                return v;
+            }
+
+            // L2: Check Redis cache
+            String redisKey = cachePrefix + keySerializer.apply(key);
+            String redisValue = redisClient.get(redisKey);
+            if (redisValue != null) {
+                V2 value = (V2) valueDeserializer.apply(redisValue);
+                if (value != null) {
+                    // Populate L1
+                    localCache.put(key, new CacheEntry<>(value, System.currentTimeMillis() + localTtlMillis));
+                    return value;
+                }
+            }
+
+            // L3: Load from source
+            V2 value = loader.apply(key);
+            if (value != null) {
+                // Populate all levels
+                localCache.put(key, new CacheEntry<>(value, System.currentTimeMillis() + localTtlMillis));
+                redisClient.set(redisKey, valueSerializer.apply(value), redisTtlMillis);
+            }
+
+            return value;
+        });
+    }
+
+    /**
      * Gets a value from cache, loading from source if necessary.
+     * <p>
+     * <b>WARNING:</b> This method performs synchronous Redis calls.
+     * Do NOT call from Folia region threads — use {@link #getAsync} instead.
      *
      * @param key the cache key
      * @param loader the function to load the value if not cached

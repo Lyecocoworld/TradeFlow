@@ -12,9 +12,10 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.config.Config;
-import com.github.lye.data.PurchaseUtil;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
+import com.github.lye.gui.GuiNavigator;
+import com.github.lye.service.IMessageService;
 
 import com.github.lye.util.Format;
 import com.github.lye.commands.core.BaseCommand;
@@ -32,7 +33,7 @@ public class MarketCommand extends BaseCommand implements CommandExecutor {
 
     public MarketCommand(TradeFlow plugin) {
         super(plugin, "market", "tradeflow.command.market", "View market information.", "/market");
-        this.guiNavigator = plugin.getGuiNavigator();
+        this.guiNavigator = plugin.getServices().get(GuiNavigator.class);
     }
 
     public boolean execute(@NotNull CommandSender sender, @NotNull String[] args) {
@@ -45,11 +46,11 @@ public class MarketCommand extends BaseCommand implements CommandExecutor {
             if (sender instanceof Player) {
                 Player player = (Player) sender;
                 if (!player.hasPermission("tradeflow.use")) {
-                    plugin.getMessageService().sendErrorMessage(player, "permission-denied", null);
+                    plugin.getServices().get(IMessageService.class).sendErrorMessage(player, "permission-denied", null);
                     return true;
                 }
                 plugin.getLogger().info("MarketCommand: Executing for player " + player.getName());
-                plugin.getMessageService().sendInfoMessage(player, "market-opening-gui", null);
+                plugin.getServices().get(IMessageService.class).sendInfoMessage(player, "market-opening-gui", null);
                 guiNavigator.openMain(player);
             } else {
                 sender.sendMessage("Only players can use this command.");

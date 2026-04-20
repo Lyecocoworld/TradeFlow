@@ -2,8 +2,11 @@ package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.data.Section;
+import com.github.lye.market.MarketTrendManager;
 import com.github.lye.data.ShopUtil;
 import com.github.lye.gui.state.PlayerShopState;
+import com.github.lye.config.settings.IGuiSettings;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import com.github.lye.util.Format;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
@@ -46,8 +49,9 @@ public class MainShopGui {
         this.state = state;
         this.logger = logger;
 
-        String marketDisplayName = plugin.getGuiSettings() != null
-                ? plugin.getGuiSettings().getMarketDisplayName()
+        IGuiSettings guiSettings = plugin.getServices().get(IGuiSettings.class);
+        String marketDisplayName = guiSettings != null
+                ? guiSettings.getMarketDisplayName()
                 : "TradeFlow";
 
         this.gui = Gui.gui()
@@ -97,7 +101,7 @@ public class MainShopGui {
         }));
 
         // Build shop sections
-        buildSections(plugin.getShopUtil(), sectionSlots);
+        buildSections(plugin.getServices().get(ShopUtil.class), sectionSlots);
 
         // --- Bottom Row: Quick Access Buttons ---
         buildQuickAccessButtons();
@@ -160,9 +164,10 @@ public class MainShopGui {
             });
 
             // Add trend indicator
-            if (plugin.getMarketTrendManager() != null) {
-                double weekly = plugin.getMarketTrendManager().getWeeklyTrend(sectionName);
-                double monthly = plugin.getMarketTrendManager().getMonthlyTrend();
+            MarketTrendManager trendMgr = plugin.getServices().get(MarketTrendManager.class);
+            if (trendMgr != null) {
+                double weekly = trendMgr.getWeeklyTrend(sectionName);
+                double monthly = trendMgr.getMonthlyTrend();
                 double totalTrend = weekly * monthly;
 
                 double percent = (totalTrend - 1.0) * 100.0;
@@ -190,6 +195,6 @@ public class MainShopGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

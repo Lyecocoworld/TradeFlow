@@ -1,6 +1,13 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.data.Database;
+import com.github.lye.data.Shop;
+import com.github.lye.data.Transaction;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
+import com.github.lye.license.LicenseManager;
+import com.github.lye.pricing.PricingManager;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -38,44 +45,43 @@ public class ServerStatsGui {
     }
 
     private void buildContent(Player player) {
-        // Bank & Policy
+        CentralBankStockManager bankManager = plugin.getServices().get(CentralBankStockManager.class);
         double bankBalance = com.github.lye.util.EconomyUtil.getCentralBankBalance(plugin);
-        com.github.lye.data.CentralBankStockManager.EconomicPolicy policy = plugin.getCentralBankStockManager().getCurrentPolicy();
+        CentralBankStockManager.EconomicPolicy policy = bankManager.getCurrentPolicy();
         
-        // TradeFlow Index
-        double inflation = plugin.getPricingManager().getGlobalInflationIndex();
+        double inflation = plugin.getServices().get(PricingManager.class).getGlobalInflationIndex();
         String inflationColor = inflation >= 0 ? "<red>" : "<green>";
         String inflationSign = inflation >= 0 ? "+" : "";
 
-        // Transaction Stats
-        Map<String, com.github.lye.data.Transaction> tx = plugin.getLoadedTransactions();
+        Map<String, Transaction> tx = plugin.getServices().get(Database.class).getTransactions();
         int totalTx = tx != null ? tx.size() : 0;
         double totalVolume = 0.0;
         int buys = 0;
         int sells = 0;
         Set<UUID> uniquePlayers = new java.util.HashSet<>();
         if (tx != null) {
-            for (com.github.lye.data.Transaction t : tx.values()) {
+            for (Transaction t : tx.values()) {
                 if (t == null) continue;
                 totalVolume += t.getPrice() * t.getAmount();
-                if (t.getPosition() == com.github.lye.data.Transaction.TransactionType.BUY) buys++;
-                if (t.getPosition() == com.github.lye.data.Transaction.TransactionType.SELL) sells++;
+                if (t.getPosition() == Transaction.TransactionType.BUY) buys++;
+                if (t.getPosition() == Transaction.TransactionType.SELL) sells++;
                 if (t.getPlayer() != null) uniquePlayers.add(t.getPlayer());
             }
         }
 
-        // Public Orders
         List<String> publicOrders = new ArrayList<>();
-        if (plugin.getLoadedShops() != null) {
-            for (com.github.lye.data.Shop shop : plugin.getLoadedShops().values()) {
-                if (shop != null && plugin.getCentralBankStockManager().isPublicOrderActive(shop)) {
+        Map<String, Shop> shops = plugin.getServices().get(Database.class).getShops();
+        if (shops != null) {
+            for (Shop shop : shops.values()) {
+                if (shop != null && bankManager.isPublicOrderActive(shop)) {
                     publicOrders.add(shop.getName());
                 }
             }
         }
 
-        int shopCount = plugin.getLoadedShops().size();
-        int licenses = plugin.getLicenseManager() != null ? plugin.getLicenseManager().getAllDefinitions().size() : 0;
+        int shopCount = shops.size();
+        LicenseManager licenseManager = plugin.getServices().get(LicenseManager.class);
+        int licenses = licenseManager != null ? licenseManager.getAllDefinitions().size() : 0;
 
         // Final copies for lambdas
         final double fBankBalance = bankBalance;
@@ -153,6 +159,6 @@ public class ServerStatsGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

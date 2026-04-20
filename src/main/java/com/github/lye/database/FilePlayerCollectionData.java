@@ -5,11 +5,11 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ public class FilePlayerCollectionData implements IPlayerCollectionData {
     public FilePlayerCollectionData(TradeFlow plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "player_collections.yml");
-        this.playerCollections = new HashMap<>(); // Initialize here
+        this.playerCollections = new ConcurrentHashMap<>(); // Initialize here
         loadPlayerCollections(); // Call to load data into the initialized map
     }
 

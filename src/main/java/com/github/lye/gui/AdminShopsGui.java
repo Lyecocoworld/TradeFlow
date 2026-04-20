@@ -2,6 +2,7 @@ package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.data.Database;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -47,7 +48,7 @@ public class AdminShopsGui {
     }
 
     private void buildContent() {
-        Database db = plugin.getDatabase();
+        Database db = plugin.getServices().get(Database.class);
         int shopCount = db != null && db.getShops() != null ? db.getShops().size() : 0;
 
         // --- Row 2: Shop Management ---
@@ -61,6 +62,7 @@ public class AdminShopsGui {
         );
         gui.setItem(11, new GuiItem(setPrice, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Usage: <yellow>/tfadmin setprice <article> <prix></yellow></white>"));
         }));
@@ -74,6 +76,7 @@ public class AdminShopsGui {
         );
         gui.setItem(13, new GuiItem(shopList, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Utilisez <yellow>/tfadmin shops</yellow> pour voir la liste.</white>"));
         }));
@@ -87,6 +90,7 @@ public class AdminShopsGui {
         );
         gui.setItem(15, new GuiItem(removeShop, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Usage: <yellow>/tfadmin removeshop <article></yellow></white>"));
         }));
@@ -102,6 +106,7 @@ public class AdminShopsGui {
         );
         gui.setItem(20, new GuiItem(update, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin update");
         }));
@@ -115,6 +120,7 @@ public class AdminShopsGui {
         );
         gui.setItem(22, new GuiItem(globalStock, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.sendMessage(MiniMessage.miniMessage().deserialize("<white>Utilisez <yellow>/tfadmin bank</yellow> pour gérer la banque.</white>"));
         }));
@@ -128,6 +134,7 @@ public class AdminShopsGui {
         );
         gui.setItem(24, new GuiItem(importExport, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             navigator.openSystem(player);
         }));
 
@@ -158,6 +165,6 @@ public class AdminShopsGui {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 }

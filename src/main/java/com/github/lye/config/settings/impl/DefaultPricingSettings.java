@@ -17,12 +17,20 @@ public class DefaultPricingSettings implements IPricingSettings {
 
     // Central Bank
     private final double publicOrderBonus;
+    private final double publicOrderThreshold;
     private final double expansionThreshold;
     private final double austerityThreshold;
     private final double activityAlpha;
     private final int defaultDailyQuota;
     private final int defaultPopulation;
     private final int defaultInitialStock;
+    private final double bootstrapThreshold;
+    private final double saturationMultiplier;
+
+    // Dynamic Spread
+    private final double dynamicSpreadActivityDivisor;
+    private final double dynamicSpreadMaxBase;
+    private final double dynamicSpreadMaxFinal;
 
     // Shop Pricing
     private final double priceStrengthM;
@@ -51,6 +59,8 @@ public class DefaultPricingSettings implements IPricingSettings {
         // Central Bank
         this.publicOrderBonus = configYml.getDouble("central-bank.public-order-bonus", 0.20);
         logger.finer("Central Bank Public Order Bonus: " + publicOrderBonus);
+        this.publicOrderThreshold = configYml.getDouble("central-bank.public-order-threshold", 0.25);
+        logger.finer("Central Bank Public Order Threshold: " + publicOrderThreshold);
         this.expansionThreshold = configYml.getDouble("central-bank.expansion-threshold", 1.5);
         logger.finer("Central Bank Expansion Threshold: " + expansionThreshold);
         this.austerityThreshold = configYml.getDouble("central-bank.austerity-threshold", 0.5);
@@ -63,6 +73,18 @@ public class DefaultPricingSettings implements IPricingSettings {
         logger.finer("Central Bank Default Population: " + defaultPopulation);
         this.defaultInitialStock = configYml.getInt("central-bank.default-initial-stock", 1280);
         logger.finer("Central Bank Default Initial Stock: " + defaultInitialStock);
+        this.bootstrapThreshold = configYml.getDouble("central-bank.bootstrap-threshold", 100.0);
+        logger.finer("Central Bank Bootstrap Threshold: " + bootstrapThreshold);
+        this.saturationMultiplier = configYml.getDouble("central-bank.saturation-multiplier", 5.0);
+        logger.finer("Central Bank Saturation Multiplier: " + saturationMultiplier);
+
+        // Dynamic Spread
+        this.dynamicSpreadActivityDivisor = configYml.getDouble("central-bank.dynamic-spread.activity-divisor", 5000.0);
+        logger.finer("Central Bank Dynamic Spread Activity Divisor: " + dynamicSpreadActivityDivisor);
+        this.dynamicSpreadMaxBase = configYml.getDouble("central-bank.dynamic-spread.max-base", 0.5);
+        logger.finer("Central Bank Dynamic Spread Max Base: " + dynamicSpreadMaxBase);
+        this.dynamicSpreadMaxFinal = configYml.getDouble("central-bank.dynamic-spread.max-final", 0.8);
+        logger.finer("Central Bank Dynamic Spread Max Final: " + dynamicSpreadMaxFinal);
 
         // Shop Pricing
         this.priceStrengthM = configYml.getDouble("pricing.price-strength-m", 0.05);
@@ -160,5 +182,35 @@ public class DefaultPricingSettings implements IPricingSettings {
     @Override
     public long getEventMaxIntervalMs() {
         return eventMaxIntervalMs;
+    }
+
+    @Override
+    public double getPublicOrderThreshold() {
+        return publicOrderThreshold;
+    }
+
+    @Override
+    public double getBootstrapThreshold() {
+        return bootstrapThreshold;
+    }
+
+    @Override
+    public double getSaturationMultiplier() {
+        return saturationMultiplier;
+    }
+
+    @Override
+    public double getDynamicSpreadActivityDivisor() {
+        return dynamicSpreadActivityDivisor;
+    }
+
+    @Override
+    public double getDynamicSpreadMaxBase() {
+        return dynamicSpreadMaxBase;
+    }
+
+    @Override
+    public double getDynamicSpreadMaxFinal() {
+        return dynamicSpreadMaxFinal;
     }
 }

@@ -13,6 +13,7 @@ public interface IPluginSettings {
     String getDatabaseUser();
     String getDatabasePassword();
     boolean isDatabaseSslEnabled();
+    boolean isDatabasePublicKeyRetrieval();
     int getDatabasePoolSize();
     int getDatabaseMinIdle();
     int getMaxTransactionHistory();
@@ -80,6 +81,7 @@ public interface IPluginSettings {
     double getTutorialUpdate();
     boolean isWebServer();
     Integer getPort();
+    String getBindAddress();
     boolean isEnableCollection();
     boolean isEnableLoans();
     int getMaxActiveLoans();

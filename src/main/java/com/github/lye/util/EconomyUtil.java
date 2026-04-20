@@ -1,23 +1,52 @@
 package com.github.lye.util;
 
-import lombok.Getter;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.service.EconomyProviderFactory;
+import com.github.lye.service.IEconomyProvider;
 import lombok.experimental.UtilityClass;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Server;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class for managing the economy.
+ * <p>
+ * Internally delegates to {@link IEconomyProvider} (abstraction over Vault).
+ * The static {@link #getEconomy()} method is retained for backward compatibility
+ * with callers that still reference the Vault {@code Economy} type directly.
  */
 @UtilityClass
 public class EconomyUtil {
 
+    private static IEconomyProvider provider;
+
+    // Kept for backward compatibility — callers that still use Vault directly.
+    @Nullable
     private static Economy economy;
 
-    // Explicit static getter to avoid Lombok reliance during compilation
+    /**
+     * Returns the underlying Vault {@link Economy} instance, or {@code null}
+     * if Vault is not present.
+     * <p>
+     * <b>Prefer {@link #getProvider()} for new code.</b>
+     */
+    @Nullable
     public static Economy getEconomy() {
         return economy;
+    }
+
+    /**
+     * Returns the abstracted economy provider.
+     * Falls back to a no-op implementation when Vault is unavailable.
+     */
+    public static IEconomyProvider getProvider() {
+        if (provider == null) {
+            return EconomyProviderFactory.createNoOp();
+        }
+        return provider;
     }
 
     /**
@@ -34,7 +63,7 @@ public class EconomyUtil {
     }
 
     /**
-     * Initializes the economy.
+     * Initializes the economy via Vault and wraps it in an {@link IEconomyProvider}.
      *
      * @param server The server.
      */
@@ -43,10 +72,12 @@ public class EconomyUtil {
                 .getRegistration(Economy.class);
 
         if (rsp == null) {
+            provider = EconomyProviderFactory.createNoOp();
             return;
         }
 
         economy = rsp.getProvider();
+        provider = EconomyProviderFactory.create(economy);
     }
 
     /**
@@ -54,14 +85,16 @@ public class EconomyUtil {
      * Tries to create a Player Account first, then a Vault Bank Account if supported.
      */
     public static void ensureCentralBankExists(com.github.lye.TradeFlow plugin) {
-        String bankName = plugin.getPluginSettings().getCentralBankAccount();
+        String bankName = plugin.getServices().get(IPluginSettings.class).getCentralBankAccount();
         if (bankName == null || bankName.isEmpty()) return;
+
+        IEconomyProvider prov = getProvider();
 
         // For special accounts, only try to create by name (not by OfflinePlayer)
         if (isSpecialAccount(bankName)) {
-            if (!economy.hasAccount(bankName)) {
+            if (!prov.hasAccount(bankName)) {
                 plugin.getLogger().info("[Economy] Creating special account: " + bankName);
-                economy.createPlayerAccount(bankName);
+                prov.createAccount(bankName);
             }
             return;
         }
@@ -69,24 +102,24 @@ public class EconomyUtil {
         org.bukkit.OfflinePlayer bankPlayer = org.bukkit.Bukkit.getOfflinePlayer(bankName);
 
         // 1. Check/Create Player Account (by OfflinePlayer)
-        if (!economy.hasAccount(bankPlayer)) {
+        if (!prov.hasAccount(bankPlayer)) {
             plugin.getLogger().info("[Economy] Attempting to create Player Account (Object): " + bankName);
-            economy.createPlayerAccount(bankPlayer);
+            prov.createAccount(bankPlayer);
         }
 
         // 2. Check/Create Player Account (by Name - often required for NPCs/Virtual)
-        if (!economy.hasAccount(bankName)) {
+        if (!prov.hasAccount(bankName)) {
             plugin.getLogger().info("[Economy] Attempting to create Player Account (String): " + bankName);
-            economy.createPlayerAccount(bankName);
+            prov.createAccount(bankName);
         }
 
         // 3. Try Bank Account if supported
-        if (economy.hasBankSupport()) {
-            net.milkbowl.vault.economy.EconomyResponse r = economy.bankBalance(bankName);
-            if (!r.transactionSuccess()) {
-                plugin.getLogger().info("[Economy] Attempting to create Vault Bank: " + bankName);
-                economy.createBank(bankName, "");
-            }
+        if (prov.hasBankSupport()) {
+            double balance = prov.getBankBalance(bankName);
+            // A zero balance from a non-existent bank is indistinguishable from an
+            // existing empty bank, so we always attempt creation — Vault returns
+            // false if the bank already exists, which is harmless.
+            prov.createBank(bankName, "");
         }
     }
 
@@ -95,20 +128,21 @@ public class EconomyUtil {
      */
     public static void injectCapital(double amount, com.github.lye.TradeFlow plugin) {
         ensureCentralBankExists(plugin);
-        String bankName = plugin.getPluginSettings().getCentralBankAccount();
+        String bankName = plugin.getServices().get(IPluginSettings.class).getCentralBankAccount();
 
         plugin.getLogger().info("[Economy] Injecting " + amount + " to " + bankName + "...");
 
+        IEconomyProvider prov = getProvider();
         boolean success = false;
 
         // For special accounts, only deposit by name
         if (isSpecialAccount(bankName)) {
-            success = economy.depositPlayer(bankName, amount).transactionSuccess();
+            success = prov.deposit(bankName, amount);
         } else {
             org.bukkit.OfflinePlayer bankPlayer = org.bukkit.Bukkit.getOfflinePlayer(bankName);
-            if (economy.depositPlayer(bankPlayer, amount).transactionSuccess()) success = true;
-            else if (economy.depositPlayer(bankName, amount).transactionSuccess()) success = true;
-            else if (economy.hasBankSupport() && economy.bankDeposit(bankName, amount).transactionSuccess()) success = true;
+            if (prov.deposit(bankPlayer, amount)) success = true;
+            else if (prov.deposit(bankName, amount)) success = true;
+            else if (prov.hasBankSupport() && prov.depositToBank(bankName, amount)) success = true;
         }
 
         if (success) {
@@ -122,8 +156,9 @@ public class EconomyUtil {
      * Gets the total balance of the Central Bank (Internal Reserve).
      */
     public static double getCentralBankBalance(com.github.lye.TradeFlow plugin) {
-        if (plugin.getCentralBankStockManager() == null) return 0;
-        return plugin.getCentralBankStockManager().getMonetaryReserve();
+        CentralBankStockManager mgr = plugin.getServices().get(CentralBankStockManager.class);
+        if (mgr == null) return 0;
+        return mgr.getMonetaryReserve();
     }
 
     /**
@@ -131,20 +166,21 @@ public class EconomyUtil {
      * Used when the server receives money (License fee, Loan repayment, etc).
      */
     public static void transferToCentralBank(double amount, com.github.lye.TradeFlow plugin) {
-        if (plugin.getCentralBankStockManager() != null) {
-            plugin.getCentralBankStockManager().addMoney(amount);
+        CentralBankStockManager mgr = plugin.getServices().get(CentralBankStockManager.class);
+        if (mgr != null) {
+            mgr.addMoney(amount);
         }
 
-        // Optional: Sync with external account for visual tracking if configured
-        String bankName = plugin.getPluginSettings().getCentralBankAccount();
+        String bankName = plugin.getServices().get(IPluginSettings.class).getCentralBankAccount();
         if (bankName != null && !bankName.isEmpty()) {
+            IEconomyProvider prov = getProvider();
             // For special accounts, only deposit by name
             if (isSpecialAccount(bankName)) {
-                economy.depositPlayer(bankName, amount);
+                prov.deposit(bankName, amount);
             } else {
                 org.bukkit.OfflinePlayer bankPlayer = org.bukkit.Bukkit.getOfflinePlayer(bankName);
-                if (!economy.depositPlayer(bankPlayer, amount).transactionSuccess()) {
-                    economy.depositPlayer(bankName, amount);
+                if (!prov.deposit(bankPlayer, amount)) {
+                    prov.deposit(bankName, amount);
                 }
             }
         }
@@ -155,20 +191,21 @@ public class EconomyUtil {
      * Used when the server pays money (Loan disbursement, Autosell payout).
      */
     public static void transferFromCentralBank(double amount, com.github.lye.TradeFlow plugin) {
-        if (plugin.getCentralBankStockManager() != null) {
-            plugin.getCentralBankStockManager().removeMoney(amount);
+        CentralBankStockManager mgr = plugin.getServices().get(CentralBankStockManager.class);
+        if (mgr != null) {
+            mgr.removeMoney(amount);
         }
 
-        // Optional: Sync with external account
-        String bankName = plugin.getPluginSettings().getCentralBankAccount();
+        String bankName = plugin.getServices().get(IPluginSettings.class).getCentralBankAccount();
         if (bankName != null && !bankName.isEmpty()) {
+            IEconomyProvider prov = getProvider();
             // For special accounts, only withdraw by name
             if (isSpecialAccount(bankName)) {
-                economy.withdrawPlayer(bankName, amount);
+                prov.withdraw(bankName, amount);
             } else {
                 org.bukkit.OfflinePlayer bankPlayer = org.bukkit.Bukkit.getOfflinePlayer(bankName);
-                if (!economy.withdrawPlayer(bankPlayer, amount).transactionSuccess()) {
-                    economy.withdrawPlayer(bankName, amount);
+                if (!prov.withdraw(bankPlayer, amount)) {
+                    prov.withdraw(bankName, amount);
                 }
             }
         }

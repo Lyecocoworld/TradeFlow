@@ -3,6 +3,7 @@ package com.github.lye.service;
 import com.github.lye.config.Config;
 import com.github.lye.data.CentralBankStockManager;
 import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -40,6 +41,10 @@ public class TradeEconomyService {
      * @param isBuy  true for buy (player pays), false for sell (player receives)
      */
     public void processPayment(Player player, double amount, boolean isBuy) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("Payment amount must be non-negative: amount=" + amount);
+        }
+
         String bankAccountName = config.getCentralBankAccount();
         OfflinePlayer bankAccount = null;
 
@@ -50,7 +55,11 @@ public class TradeEconomyService {
         }
 
         if (isBuy) {
-            economy.withdrawPlayer(player, amount);
+            EconomyResponse response = economy.withdrawPlayer(player, amount);
+            if (!response.transactionSuccess()) {
+                Bukkit.getLogger().warning("[TradeFlow] Payment withdrawal failed for " + player.getName()
+                        + ": " + response.errorMessage + " (amount: " + amount + ")");
+            }
             if (bankAccount != null) {
                 economy.depositPlayer(bankAccount, amount);
             } else if (isSpecialAccount && bankAccountName != null && !bankAccountName.isEmpty()) {
@@ -63,9 +72,65 @@ public class TradeEconomyService {
             } else if (isSpecialAccount && bankAccountName != null && !bankAccountName.isEmpty()) {
                 economy.withdrawPlayer(bankAccountName, amount);
             }
-            economy.depositPlayer(player, amount);
+            EconomyResponse response = economy.depositPlayer(player, amount);
+            if (!response.transactionSuccess()) {
+                Bukkit.getLogger().warning("[TradeFlow] Payment deposit failed for " + player.getName()
+                        + ": " + response.errorMessage + " (amount: " + amount + ")");
+            }
             centralBankStockManager.removeMoney(amount);
         }
+    }
+
+    /**
+     * Processes a sell payment where tax is deducted from the payout.
+     * <p>
+     * The bank pays the full {@code grossTotal} (withdrawn from bank account),
+     * but the player only receives {@code netPayout} ({@code grossTotal - tax}).
+     * The tax portion is deposited to the treasury separately by
+     * {@link com.github.lye.data.TaxManager#collectTaxAsDeduction}.
+     * <p>
+     * Monetary reserve tracking: the full {@code grossTotal} is removed from the
+     * reserve (bank paid it all out). The tax portion is added back when
+     * {@code TaxManager.collectTaxAsDeduction} deposits it to the treasury,
+     * yielding the same net reserve change as the old deposit-then-withdraw flow.
+     *
+     * @param player     the player receiving the net payout
+     * @param grossTotal the full trade value (before tax deduction)
+     * @param netPayout  the amount the player actually receives (grossTotal - tax)
+     */
+    public void processSellWithNetPayout(Player player, double grossTotal, double netPayout) {
+        if (grossTotal < 0) {
+            throw new IllegalArgumentException("Payment grossTotal must be non-negative: grossTotal=" + grossTotal);
+        }
+        if (netPayout < 0) {
+            throw new IllegalArgumentException("Payment netPayout must be non-negative: netPayout=" + netPayout);
+        }
+
+        String bankAccountName = config.getCentralBankAccount();
+        OfflinePlayer bankAccount = null;
+
+        boolean isSpecialAccount = isSpecialAccount(bankAccountName);
+
+        if (config.isEnableDynamicPricing() && bankAccountName != null && !bankAccountName.isEmpty() && !isSpecialAccount) {
+            bankAccount = Bukkit.getOfflinePlayer(bankAccountName);
+        }
+
+        // Withdraw gross total from bank account (bank's full liability)
+        if (bankAccount != null) {
+            economy.withdrawPlayer(bankAccount, grossTotal);
+        } else if (isSpecialAccount && bankAccountName != null && !bankAccountName.isEmpty()) {
+            economy.withdrawPlayer(bankAccountName, grossTotal);
+        }
+
+        // Deposit only the net payout to player (tax already deducted)
+        EconomyResponse response = economy.depositPlayer(player, netPayout);
+        if (!response.transactionSuccess()) {
+            Bukkit.getLogger().warning("[TradeFlow] Sell payout deposit failed for " + player.getName()
+                    + ": " + response.errorMessage + " (net: " + netPayout + ")");
+        }
+
+        // Reserve tracks the gross amount (tax portion returned via TaxManager)
+        centralBankStockManager.removeMoney(grossTotal);
     }
 
     /**

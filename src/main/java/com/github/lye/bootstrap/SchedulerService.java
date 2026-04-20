@@ -6,6 +6,9 @@ import com.github.lye.data.EconomyDataUtil;
 import com.github.lye.events.EconomicEventManager;
 import com.github.lye.events.LoanInterestEvent;
 import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.gui.TransactionLock;
+import com.github.lye.util.TradeFlowLogger;
+import com.github.lye.market.MarketTrendManager;
 
 import java.time.LocalDate;
 
@@ -28,6 +31,7 @@ public class SchedulerService {
     private final com.github.lye.pricing.PricingManager pricingManager;
     private final com.github.lye.market.StockManager stockManager;
     private final EconomyDataUtil economyDataUtil;
+    private final TradeFlowLogger tradeLogger;
 
     private LocalDate lastResetDate;
     private int minutesElapsed = 0;
@@ -60,6 +64,7 @@ public class SchedulerService {
         this.pricingManager = pricingManager;
         this.stockManager = stockManager;
         this.economyDataUtil = economyDataUtil;
+        this.tradeLogger = plugin.getServices().get(TradeFlowLogger.class);
         this.lastResetDate = LocalDate.now();
     }
 
@@ -67,69 +72,72 @@ public class SchedulerService {
      * Starts all scheduled tasks.
      */
     public void start() {
-        plugin.getTradeLogger().config("Starting scheduled tasks...");
+        tradeLogger.config("Starting scheduled tasks...");
 
         plugin.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, task -> {
             tick();
         }, 20L, 1200L); // 1 second delay, then every minute (1200 ticks)
 
-        plugin.getTradeLogger().config("Scheduled tasks started");
+        tradeLogger.config("Scheduled tasks started");
     }
 
     /**
      * The main tick method called every minute.
+     * <p>
+     * All subsystem calls are non-blocking. Heavy I/O (loan interest,
+     * daily limit resets) is offloaded to the async scheduler.</p>
      */
     private void tick() {
-        // Market Trends update (daily/weekly/monthly calculation)
-        if (plugin.getMarketTrendManager() != null) {
-            plugin.getMarketTrendManager().checkUpdates();
+        if (plugin.getServices().get(MarketTrendManager.class) != null) {
+            plugin.getServices().get(MarketTrendManager.class).checkUpdates();
         }
 
-        // Economic events tick
         if (economicEventManager != null) {
             economicEventManager.tick();
         }
 
-        // Central bank policy update
         if (centralBankStockManager != null) {
             centralBankStockManager.updatePolicy();
         }
 
-        // Price updates
         if (pricingManager != null) {
             pricingManager.tick(database.getShops());
         }
 
-        // Weekly stock reset check
         if (stockManager != null) {
             stockManager.checkWeeklyReset();
         }
 
+        if (minutesElapsed % 5 == 0) {
+            TransactionLock.cleanup();
+        }
+
         minutesElapsed++;
 
-        // Periodic base price reset for rolling reference
         int resetPeriod = (int) pluginSettings.getTimePeriod();
         if (resetPeriod > 0 && minutesElapsed >= resetPeriod) {
             minutesElapsed = 0;
-            plugin.getTradeLogger().fine("Updating dynamic price reference...");
+            tradeLogger.fine("Updating dynamic price reference...");
             for (com.github.lye.data.Shop shop : database.getShops().values()) {
                 shop.syncBasePrice();
             }
         }
 
-        // Daily reset check
         LocalDate current = LocalDate.now();
         if (!current.equals(lastResetDate)) {
             lastResetDate = current;
             if (database != null) {
-                database.resetAllDailyLimits();
-                plugin.getTradeLogger().config("Daily limits reset");
+                plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
+                    database.resetAllDailyLimits();
+                    tradeLogger.config("Daily limits reset");
+                });
             }
         }
 
-        // Loan interest update — apply interest to all active loans every tick (1 minute)
         if (database != null && economyDataUtil != null && !database.getLoans().isEmpty()) {
-            LoanInterestEvent.runUpdate(database, economyDataUtil, pluginSettings, plugin);
+            plugin.getServer().getAsyncScheduler().runNow(plugin, t -> {
+                LoanInterestEvent.runUpdate(database, economyDataUtil, pluginSettings, plugin);
+            });
         }
     }
 
@@ -138,7 +146,7 @@ public class SchedulerService {
      */
     public void shutdown() {
         // Tasks are automatically cancelled when plugin is disabled
-        plugin.getTradeLogger().config("Scheduled tasks stopped");
+        tradeLogger.config("Scheduled tasks stopped");
     }
 
     /**

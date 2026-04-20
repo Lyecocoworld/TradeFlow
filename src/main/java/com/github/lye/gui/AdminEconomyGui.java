@@ -1,8 +1,12 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.data.Database;
 import com.github.lye.events.EconomicEventManager;
+import com.github.lye.data.TaxManager;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -47,11 +51,14 @@ public class AdminEconomyGui {
     }
 
     private void buildContent() {
-        double bankBalance = plugin.getCentralBankStockManager() != null
-                ? plugin.getCentralBankStockManager().getMonetaryReserve()
+        CentralBankStockManager bankMgr = plugin.getServices().get(CentralBankStockManager.class);
+        TaxManager taxMgr = plugin.getServices().get(TaxManager.class);
+
+        double bankBalance = bankMgr != null
+                ? bankMgr.getMonetaryReserve()
                 : 0;
-        double totalTaxes = plugin.getTaxManager() != null
-                ? plugin.getTaxManager().getTotalTaxesCollected()
+        double totalTaxes = taxMgr != null
+                ? taxMgr.getTotalTaxesCollected()
                 : 0;
 
         // --- Row 2: Economic Overview ---
@@ -66,6 +73,7 @@ public class AdminEconomyGui {
         );
         gui.setItem(11, new GuiItem(stats, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             new AdminServerStatsGui(plugin, navigator, player).open(player);
         }));
 
@@ -79,6 +87,7 @@ public class AdminEconomyGui {
         );
         gui.setItem(13, new GuiItem(centralBank, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin bank");
         }));
@@ -93,6 +102,7 @@ public class AdminEconomyGui {
         );
         gui.setItem(15, new GuiItem(trends, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             new ServerStatsGui(plugin, player).open(player);
         }));
 
@@ -108,6 +118,7 @@ public class AdminEconomyGui {
         );
         gui.setItem(20, new GuiItem(taxes, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin taxes stats");
         }));
@@ -122,6 +133,7 @@ public class AdminEconomyGui {
         );
         gui.setItem(22, new GuiItem(events, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin event");
         }));
@@ -136,6 +148,7 @@ public class AdminEconomyGui {
         );
         gui.setItem(24, new GuiItem(licenses, event -> {
             Player player = (Player) event.getWhoClicked();
+            if (!AdminPermission.check(player)) return;
             player.closeInventory();
             player.performCommand("tfadmin license");
         }));
@@ -148,7 +161,7 @@ public class AdminEconomyGui {
     }
 
     private String getEventStatus() {
-        EconomicEventManager evtMgr = plugin.getEconomicEventManager();
+        EconomicEventManager evtMgr = plugin.getServices().get(EconomicEventManager.class);
         if (evtMgr != null && evtMgr.getActiveEvent() != null) {
             return "<yellow>Événement actif</yellow>";
         }
@@ -179,6 +192,6 @@ public class AdminEconomyGui {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 }

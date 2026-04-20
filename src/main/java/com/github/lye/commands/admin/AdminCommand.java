@@ -2,6 +2,7 @@ package com.github.lye.commands.admin;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.events.EconomicEvent;
+import com.github.lye.events.EconomicEventManager;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -61,6 +62,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleEventCommand(CommandSender sender, String[] args) {
+        EconomicEventManager eventManager = plugin.getServices().get(EconomicEventManager.class);
         if (args.length < 2) {
             sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>Usage: /tfa event <start|stop|list> [name]</red>"));
             return;
@@ -69,23 +71,21 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         String action = args[1].toLowerCase();
 
         if (action.equals("list")) {
-            String events = String.join(", ", plugin.getEconomicEventManager().getPossibleEventNames());
+            String events = String.join(", ", eventManager.getPossibleEventNames());
             sender.sendMessage(MiniMessage.miniMessage().deserialize("<green>Available Events: <gray>" + events));
             return;
         }
 
         if (action.equals("start")) {
             if (args.length < 3) {
-                // Start random
-                if (plugin.getEconomicEventManager().startRandomEconomicEvent()) {
+                if (eventManager.startRandomEconomicEvent()) {
                     sender.sendMessage(MiniMessage.miniMessage().deserialize("<green>Random economic event started.</green>"));
                 } else {
                     sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>Failed to start event.</red>"));
                 }
             } else {
-                // Start specific
                 String eventName = args[2];
-                if (plugin.getEconomicEventManager().startSpecificEconomicEvent(eventName)) {
+                if (eventManager.startSpecificEconomicEvent(eventName)) {
                     sender.sendMessage(MiniMessage.miniMessage().deserialize("<green>Event '" + eventName + "' started.</green>"));
                 } else {
                     sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>Event '" + eventName + "' not found.</red>"));
@@ -95,8 +95,11 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
 
         if (action.equals("stop")) {
-             // TODO: Implement stop logic properly in manager
-             sender.sendMessage(MiniMessage.miniMessage().deserialize("<yellow>Stopping events is not fully implemented yet.</yellow>"));
+            if (eventManager.stopCurrentEvent()) {
+                sender.sendMessage(MiniMessage.miniMessage().deserialize("<green>Active economic event stopped.</green>"));
+            } else {
+                sender.sendMessage(MiniMessage.miniMessage().deserialize("<yellow>No active economic event to stop.</yellow>"));
+            }
         }
     }
 
@@ -121,7 +124,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 3 && args[0].equalsIgnoreCase("event") && args[1].equalsIgnoreCase("start")) {
-            return plugin.getEconomicEventManager().getPossibleEventNames();
+            return plugin.getServices().get(EconomicEventManager.class).getPossibleEventNames();
         }
 
         return null;

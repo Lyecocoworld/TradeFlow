@@ -3,6 +3,7 @@ package com.github.lye.redis;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import org.bukkit.plugin.Plugin;
@@ -64,7 +65,10 @@ public class DistributedLock implements AutoCloseable {
      * Attempts to acquire the lock.
      *
      * @return true if lock was acquired, false otherwise
+     * @deprecated Use {@link #tryLockAsync(long, Plugin)} instead — this method blocks the
+     *             calling thread with {@code Thread.sleep()} and is unsafe on Folia region threads.
      */
+    @Deprecated(since = "0.2", forRemoval = true)
     public boolean tryLock() {
         return tryLock(DEFAULT_TIMEOUT_MS);
     }
@@ -81,7 +85,10 @@ public class DistributedLock implements AutoCloseable {
      *
      * @param maxWaitMs maximum time to wait for lock in milliseconds
      * @return true if lock was acquired, false otherwise
+     * @deprecated Use {@link #tryLockAsync(long, Plugin)} instead — this method blocks the
+     *             calling thread with {@code Thread.sleep()} and is unsafe on Folia region threads.
      */
+    @Deprecated(since = "0.2", forRemoval = true)
     public boolean tryLock(long maxWaitMs) {
         long startTime = System.currentTimeMillis();
         long ttlSeconds = Math.max(1, timeoutMs / 1000);
@@ -185,7 +192,10 @@ public class DistributedLock implements AutoCloseable {
      *
      * @param action the action to execute
      * @return true if action completed successfully, false otherwise
+     * @deprecated Use {@link #withLockAsync(Consumer, Plugin)} instead — delegates to the
+     *             synchronous {@link #tryLock()} which blocks with {@code Thread.sleep()}.
      */
+    @Deprecated(since = "0.2", forRemoval = true)
     public boolean withLock(Runnable action) {
         if (!tryLock()) {
             return false;
@@ -197,6 +207,34 @@ public class DistributedLock implements AutoCloseable {
         } finally {
             unlock();
         }
+    }
+
+    /**
+     * Async version of withLock — safe for Folia region threads.
+     * <p>
+     * Acquires the lock asynchronously, then invokes the action with the result
+     * ( {@code true} = acquired, {@code false} = timeout). The lock is released
+     * automatically after the action completes.</p>
+     *
+     * @param action consumer receiving {@code true} if the lock was acquired,
+     *               {@code false} on timeout
+     * @param plugin the plugin instance for scheduler access
+     * @return a {@link CompletableFuture} that completes when the action finishes,
+     *         or immediately on timeout
+     */
+    public CompletableFuture<Void> withLockAsync(Consumer<Boolean> action, Plugin plugin) {
+        return tryLockAsync(DEFAULT_TIMEOUT_MS, plugin).thenCompose(acquired -> {
+            if (!acquired) {
+                action.accept(false);
+                return CompletableFuture.completedFuture(null);
+            }
+            try {
+                action.accept(true);
+            } finally {
+                unlock();
+            }
+            return CompletableFuture.completedFuture(null);
+        });
     }
 
     /**

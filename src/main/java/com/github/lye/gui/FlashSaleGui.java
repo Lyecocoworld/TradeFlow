@@ -3,7 +3,12 @@ package com.github.lye.gui;
 import com.github.lye.TradeFlow;
 import com.github.lye.data.Shop;
 import com.github.lye.gameplay.rumors.RumorManager;
+import com.github.lye.service.IInventoryService;
+import com.github.lye.service.IMessageService;
+import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
+import com.github.lye.data.ShopUtil;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -38,13 +43,13 @@ public class FlashSaleGui {
     }
 
     private void buildContent(Player player) {
-        List<RumorManager.FlashSale> sales = plugin.getRumorManager().getFlashSales();
+        List<RumorManager.FlashSale> sales = plugin.getServices().get(RumorManager.class).getFlashSales();
         // Slots mirroring RumorGui: 11, 13, 15
         int[] slots = {11, 13, 15};
 
         for (int i = 0; i < Math.min(sales.size(), slots.length); i++) {
             RumorManager.FlashSale sale = sales.get(i);
-            Shop shop = plugin.getShopUtil().getShop(sale.itemKey, true);
+            Shop shop = plugin.getServices().get(ShopUtil.class).getShop(sale.itemKey, true);
             if (shop == null) continue;
 
             Material mat = Material.matchMaterial(sale.itemKey.toUpperCase());
@@ -62,7 +67,7 @@ public class FlashSaleGui {
                         .decoration(TextDecoration.ITALIC, false));
                 lore.add(MiniMessage.miniMessage().deserialize("<gray>Réduction: <gold>-" + sale.discountPercent + "%</gold>")
                         .decoration(TextDecoration.ITALIC, false));
-                lore.add(MiniMessage.miniMessage().deserialize("<gray>Stock: <gold>" + sale.stock + "</gold>")
+                lore.add(MiniMessage.miniMessage().deserialize("<gray>Stock: <gold>" + sale.getStock() + "</gold>")
                         .decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.empty());
                 lore.add(MiniMessage.miniMessage().deserialize("<yellow>Clic pour acheter</yellow>")
@@ -91,23 +96,36 @@ public class FlashSaleGui {
     }
 
     private void buyFlashSale(Player player, RumorManager.FlashSale sale) {
-        if (sale.stock <= 0) {
-            plugin.getMessageService().sendErrorMessage(player, "<red>Rupture de stock !</red>", null);
+        if (!TransactionLock.tryAcquire(player.getUniqueId())) {
             return;
         }
-        if (plugin.getEconomy().getBalance(player) < sale.price) {
-            plugin.getMessageService().sendErrorMessage(player, "not-enough-money", null);
-            return;
+        try {
+            int currentStock;
+            while ((currentStock = sale.stock.get()) > 0) {
+                if (sale.stock.compareAndSet(currentStock, currentStock - 1)) {
+                    break;
+                }
+            }
+            if (currentStock <= 0) {
+                plugin.getServices().get(IMessageService.class).sendErrorMessage(player, "<red>Rupture de stock !</red>", null);
+                return;
+            }
+            if (EconomyUtil.getEconomy().getBalance(player) < sale.price) {
+                sale.stock.incrementAndGet();
+                plugin.getServices().get(IMessageService.class).sendErrorMessage(player, "not-enough-money", null);
+                return;
+            }
+
+            EconomyUtil.getEconomy().withdrawPlayer(player, sale.price);
+            plugin.getServices().get(IInventoryService.class).giveItem(player, new ItemStack(Material.matchMaterial(sale.itemKey.toUpperCase()), 1));
+
+            player.sendMessage(MiniMessage.miniMessage().deserialize("<green>Vous avez profité de la promotion !</green>"));
+        } finally {
+            TransactionLock.release(player.getUniqueId());
         }
-
-        plugin.getEconomy().withdrawPlayer(player, sale.price);
-        plugin.getInventoryService().giveItem(player, new ItemStack(Material.matchMaterial(sale.itemKey.toUpperCase()), 1));
-        sale.stock--;
-
-        player.sendMessage(MiniMessage.miniMessage().deserialize("<green>Vous avez profité de la promotion !</green>"));
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

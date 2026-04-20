@@ -1,8 +1,10 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.Database;
 import com.github.lye.data.Transaction;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -183,7 +185,7 @@ public class AdminTransactionGui {
     }
 
     private List<Transaction> getFilteredTransactions() {
-        Map<String, Transaction> allTx = plugin.getLoadedTransactions();
+        Map<String, Transaction> allTx = plugin.getServices().get(Database.class).getTransactions();
         if (allTx == null) {
             return Collections.emptyList();
         }
@@ -226,7 +228,7 @@ public class AdminTransactionGui {
     }
 
     public void open(Player admin) {
-        gui.open(admin);
+        TriumphGuiAdapter.openSafe(gui, admin, plugin);
     }
 
     public static class TransactionFilter {

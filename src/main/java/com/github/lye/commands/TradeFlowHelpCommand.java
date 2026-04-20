@@ -2,7 +2,9 @@ package com.github.lye.commands;
 
 import com.github.lye.TradeFlow;
 import com.github.lye.commands.core.BaseCommand;
+import com.github.lye.config.settings.IMessageSettings;
 import com.github.lye.gui.HelpGui;
+import com.github.lye.service.IMessageService;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -29,8 +31,8 @@ public class TradeFlowHelpCommand extends BaseCommand {
         }
 
         // Console fallback
-        for (String message : plugin.getMessageSettings().getHelp()) {
-            plugin.getMessageService().sendInfoMessage(sender, message, null);
+        for (String message : plugin.getServices().get(IMessageSettings.class).getHelp()) {
+            plugin.getServices().get(IMessageService.class).sendInfoMessage(sender, message, null);
         }
         return true;
     }

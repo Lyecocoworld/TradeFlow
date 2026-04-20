@@ -5,6 +5,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 /**
@@ -43,14 +44,15 @@ public class FileServerStateRepository implements ServerStateRepository {
     }
 
     @Override
-    public String getState(String key) {
-        return config.getString(key);
+    public CompletableFuture<String> getState(String key) {
+        return CompletableFuture.completedFuture(config.getString(key));
     }
 
     @Override
-    public void setState(String key, String value) {
+    public CompletableFuture<Void> setState(String key, String value) {
         config.set(key, value);
         save();
+        return CompletableFuture.completedFuture(null);
     }
 }
 

@@ -1,4 +1,4 @@
-package unprotesting.com.github.data;
+package com.github.lye.data;
 
 import org.bukkit.entity.Player;
 

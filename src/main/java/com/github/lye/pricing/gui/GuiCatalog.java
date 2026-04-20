@@ -3,6 +3,8 @@ package com.github.lye.pricing.gui;
 import com.github.lye.pricing.model.Family;
 import com.github.lye.pricing.model.ItemId;
 import com.github.lye.pricing.service.PriceService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -75,11 +77,11 @@ public class GuiCatalog {
         ItemStack itemStack = new ItemStack(paneMaterial);
         ItemMeta meta = itemStack.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName("§r§f" + formatItemId(family.getRootItem()));
-            List<String> lore = new ArrayList<>();
-            lore.add("§7Category: §f" + familyCat);
-            lore.add("§7Click to view variants");
-            meta.setLore(lore);
+            meta.displayName(MiniMessage.miniMessage().deserialize("<white>" + formatItemId(family.getRootItem())));
+            List<Component> lore = new ArrayList<>();
+            lore.add(MiniMessage.miniMessage().deserialize("<gray>Category: <white>" + familyCat));
+            lore.add(MiniMessage.miniMessage().deserialize("<gray>Click to view variants"));
+            meta.lore(lore);
             itemStack.setItemMeta(meta);
         }
         return itemStack;

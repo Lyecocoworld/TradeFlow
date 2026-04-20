@@ -1,6 +1,7 @@
 package com.github.lye.commands;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
 import com.github.lye.commands.core.BaseCommand;
 import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
@@ -21,18 +22,19 @@ public class TradeFlowSetBankBalanceCommand extends BaseCommand {
 
         try {
             double amount = Double.parseDouble(args[0]);
-            double current = plugin.getCentralBankStockManager().getMonetaryReserve();
+            CentralBankStockManager bankMgr = plugin.getServices().get(CentralBankStockManager.class);
+            double current = bankMgr.getMonetaryReserve();
             
             if (amount > current) {
-                plugin.getCentralBankStockManager().addMoney(amount - current);
+                bankMgr.addMoney(amount - current);
             } else {
-                plugin.getCentralBankStockManager().removeMoney(current - amount);
+                bankMgr.removeMoney(current - amount);
             }
             
-            sender.sendMessage("§aCentral Bank internal reserve updated to: §f" + Format.currency(plugin.getCentralBankStockManager().getMonetaryReserve()));
+            Format.sendRawMessage(sender, "<green>Central Bank internal reserve updated to: <white>" + Format.currency(bankMgr.getMonetaryReserve()));
             
         } catch (NumberFormatException e) {
-            sender.sendMessage("§cInvalid amount.");
+            Format.sendRawMessage(sender, "<red>Invalid amount.");
         }
 
         return true;

@@ -3,8 +3,11 @@ package com.github.lye.events;
 import org.bukkit.configuration.ConfigurationSection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class EconomicEvent {
+
+    private static final Logger LOGGER = Logger.getLogger(EconomicEvent.class.getName());
 
     private final String name;
     private final String display;
@@ -44,8 +47,8 @@ public class EconomicEvent {
                 double value = map.containsKey("value") ? ((Number) map.get("value")).doubleValue() : 1.0;
                 List<String> items = (List<String>) map.get("items");
                 effects.add(new EventEffect(type, items, value));
-            } catch (Exception e) {
-                System.err.println("Failed to parse effect for event " + name + ": " + e.getMessage());
+            } catch (IllegalArgumentException | ClassCastException e) {
+                LOGGER.warning("Failed to parse effect for event " + name + ": " + e.getMessage());
             }
         }
 

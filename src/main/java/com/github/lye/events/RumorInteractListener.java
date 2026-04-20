@@ -15,7 +15,7 @@ public class RumorInteractListener implements Listener {
 
     public RumorInteractListener(TradeFlow plugin) {
         this.plugin = plugin;
-        this.rumorManager = plugin.getRumorManager();
+        this.rumorManager = plugin.getServices().get(RumorManager.class);
     }
 
     @EventHandler

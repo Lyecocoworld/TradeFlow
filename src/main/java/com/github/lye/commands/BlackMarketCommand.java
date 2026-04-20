@@ -51,7 +51,7 @@ public class BlackMarketCommand extends SubCommand {
         Player player = (Player) sender;
 
         // Access control check via RumorManager
-        RumorManager rumorManager = plugin.getRumorManager();
+        RumorManager rumorManager = plugin.getServices().get(RumorManager.class);
         if (rumorManager != null && !rumorManager.canAccessBroker(player)) {
             sender.sendMessage(MiniMessage.miniMessage().deserialize(
                 "<dark_gray><b>⚠ Marché Noir</b></dark_gray>"

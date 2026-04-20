@@ -1,10 +1,8 @@
 package com.github.lye.pricing.database;
 
-import com.github.lye.config.settings.IPluginSettings;
 import com.github.lye.database.MySQLConnector;
 import com.github.lye.pricing.model.ItemId;
 import com.github.lye.pricing.model.PricingData;
-import org.bukkit.configuration.file.FileConfiguration;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,18 +12,30 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
+/**
+ * MySQL-backed implementation of {@link PriceDatabaseAPI}.
+ * <p>
+ * Uses a <b>shared</b> {@link MySQLConnector} instance — the caller is responsible
+ * for the connector's lifecycle (open/close). This avoids creating a duplicate
+ * HikariCP connection pool to the same database.
+ */
 public class MySQLPriceDatabaseAPIImpl implements PriceDatabaseAPI {
 
     private final MySQLConnector mySQLConnector;
     private final Logger logger;
 
-    public MySQLPriceDatabaseAPIImpl(IPluginSettings pluginSettings, Logger logger) {
-        this.logger = logger;
-        try {
-            this.mySQLConnector = new MySQLConnector(pluginSettings);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize MySQL Connector for Pricing API", e);
+    /**
+     * Creates a new instance using an existing, shared MySQL connector.
+     *
+     * @param sharedConnector the shared connector managed externally (never null)
+     * @param logger          the plugin logger
+     */
+    public MySQLPriceDatabaseAPIImpl(MySQLConnector sharedConnector, Logger logger) {
+        if (sharedConnector == null) {
+            throw new IllegalArgumentException("Shared MySQLConnector must not be null");
         }
+        this.mySQLConnector = sharedConnector;
+        this.logger = logger;
     }
 
     @Override
@@ -85,9 +95,12 @@ public class MySQLPriceDatabaseAPIImpl implements PriceDatabaseAPI {
         });
     }
 
+    /**
+     * No-op — the shared {@link MySQLConnector} lifecycle is managed by
+     * {@link com.github.lye.bootstrap.DatabaseBootstrapService}.
+     */
     @Override
     public CompletableFuture<Void> shutdown() {
-        mySQLConnector.close();
         return CompletableFuture.completedFuture(null);
     }
 

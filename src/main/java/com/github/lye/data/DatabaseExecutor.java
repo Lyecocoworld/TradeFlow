@@ -34,7 +34,6 @@ public class DatabaseExecutor {
                 task.run();
             } catch (Exception e) {
                 logger.severe("Error during async database write: " + e.getMessage());
-                e.printStackTrace();
             } finally {
                 pendingTasks.decrementAndGet();
             }

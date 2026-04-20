@@ -1,4 +1,4 @@
-package unprotesting.com.github.data;
+package com.github.lye.data;
 
 public enum ReadyState {
     COLD,              // Base non connectée

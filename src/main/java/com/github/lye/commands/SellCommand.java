@@ -9,9 +9,9 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import com.github.lye.TradeFlow;
 import com.github.lye.config.Config;
-import com.github.lye.data.PurchaseUtil;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
+import com.github.lye.gui.GuiNavigator;
 import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
 import com.github.lye.data.Transaction;
@@ -47,7 +47,7 @@ public class SellCommand extends BaseCommand implements CommandExecutor, TabComp
         // Logic from the original interpret method
         // Temporary placeholder during GUI migration to DevNatan IF.
         // The sell panel will be re-implemented as a View.
-        plugin.getGuiNavigator().openMain(player);
+        plugin.getServices().get(GuiNavigator.class).openMain(player);
         return true;
     }
 

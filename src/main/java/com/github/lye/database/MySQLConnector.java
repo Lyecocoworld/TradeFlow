@@ -31,15 +31,15 @@ public class MySQLConnector {
         String user = settings.getDatabaseUser();
         String pass = settings.getDatabasePassword();
         boolean useSSL = settings.isDatabaseSslEnabled();
+        boolean allowPublicKeyRetrieval = settings.isDatabasePublicKeyRetrieval();
 
         InetAddress resolvedAddress = InetAddress.getByName(host);
 
         config.setPoolName("TradeFlow-Pool");
         config.setDriverClassName("com.mysql.cj.jdbc.Driver");
         
-        // Advanced JDBC URL with tuning
-        String jdbcUrl = String.format("jdbc:mysql://%s:%d/%s?useSSL=%s&allowPublicKeyRetrieval=true", 
-                resolvedAddress.getHostAddress(), port, dbName, useSSL);
+        String jdbcUrl = String.format("jdbc:mysql://%s:%d/%s?useSSL=%s&allowPublicKeyRetrieval=%s", 
+                resolvedAddress.getHostAddress(), port, dbName, useSSL, allowPublicKeyRetrieval);
         config.setJdbcUrl(jdbcUrl);
         
         config.setUsername(user);
@@ -75,7 +75,6 @@ public class MySQLConnector {
                 .name("mysql")
                 .failureThreshold(3)
                 .openTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .halfOpenMaxCallDuration(5, java.util.concurrent.TimeUnit.SECONDS)
                 .build();
     }
 
@@ -98,20 +97,6 @@ public class MySQLConnector {
             throw new SQLException(e.getMessage(), e);
         } catch (Exception e) {
             throw new SQLException(e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Attempts to get a connection, returning null on circuit breaker open.
-     *
-     * @return the connection, or null if circuit is open
-     */
-    public Connection getConnectionQuietly() {
-        try {
-            return getConnection();
-        } catch (SQLException e) {
-            LOGGER.warning("Failed to get database connection: " + e.getMessage());
-            return null;
         }
     }
 

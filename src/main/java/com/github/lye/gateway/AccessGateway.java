@@ -45,7 +45,7 @@ public final class AccessGateway {
     plugin.getServer().getAsyncScheduler().runNow(plugin, task -> playerCollectionData.addPlayerCollection(uuid, itemKey));
 
     // Cross-server propagation via Redis (if enabled)
-    com.github.lye.redis.RedisClient redis = plugin.getRedisClient();
+    com.github.lye.redis.RedisClient redis = plugin.getServices().getRedisClient();
     if (redis != null && redis.isEnabled()) {
         try {
             CollectUpdateMessage msg = new CollectUpdateMessage();
@@ -64,7 +64,7 @@ public final class AccessGateway {
     plugin.getServer().getAsyncScheduler().runNow(plugin, task -> serverCollectionData.addServerCollection(itemKey));
 
     // Cross-server propagation via Redis (if enabled)
-    com.github.lye.redis.RedisClient redis = plugin.getRedisClient();
+    com.github.lye.redis.RedisClient redis = plugin.getServices().getRedisClient();
     if (redis != null && redis.isEnabled()) {
         try {
             CollectUpdateMessage msg = new CollectUpdateMessage();

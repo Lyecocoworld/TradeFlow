@@ -1,6 +1,7 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -79,10 +80,10 @@ public class UtilityGui {
         ItemStack back = new ItemStack(Material.ARROW);
         back.editMeta(m -> m.displayName(
                 GuiTextCache.themedComponent("<gold><b>Retour au menu principal</b></gold>")));
-        gui.setItem(18, new GuiItem(back, event -> plugin.getGuiNavigator().openMain(player)));
+        gui.setItem(18, new GuiItem(back, event -> plugin.getServices().get(com.github.lye.gui.GuiNavigator.class).openMain(player)));
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

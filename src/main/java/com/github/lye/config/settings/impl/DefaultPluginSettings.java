@@ -27,6 +27,7 @@ public class DefaultPluginSettings implements IPluginSettings {
     private final String databaseUser;
     private final String databasePassword;
     private final boolean databaseSslEnabled;
+    private final boolean databasePublicKeyRetrieval;
     private final int databasePoolSize;
     private final int databaseMinIdle;
     private final int maxTransactionHistory;
@@ -100,6 +101,7 @@ public class DefaultPluginSettings implements IPluginSettings {
 
     private final boolean webServer;
     private final Integer port;
+    private final String bindAddress;
 
     // --- REPUTATION ---
     private final double reputationDefault;
@@ -134,9 +136,10 @@ public class DefaultPluginSettings implements IPluginSettings {
         this.databaseHost = general.getString("database.host", "127.0.0.1");
         this.databasePort = general.getInt("database.port", 3306);
         this.databaseName = general.getString("database.name", "tradeflow");
-        this.databaseUser = general.getString("database.user", "user");
-        this.databasePassword = general.getString("database.password", "password");
+        this.databaseUser = general.getString("database.user", "CHANGEME_db_user");
+        this.databasePassword = general.getString("database.password", "CHANGEME_db_password");
         this.databaseSslEnabled = general.getBoolean("database.ssl.enabled", false);
+        this.databasePublicKeyRetrieval = general.getBoolean("database.allow-public-key-retrieval", true);
         this.databasePoolSize = general.getInt("database.pool.size", 50);
         this.databaseMinIdle = general.getInt("database.pool.min-idle", 10);
         this.maxTransactionHistory = general.getInt("database.max-transaction-history", 1000);
@@ -187,6 +190,7 @@ public class DefaultPluginSettings implements IPluginSettings {
 
         this.webServer = general.getBoolean("web-server.enabled", true);
         this.port = general.getInt("web-server.port", 8989);
+        this.bindAddress = general.getString("web-server.bind-address", "127.0.0.1");
 
         // --- PRICING MODULE parsing ---
         this.enableDynamicPricing = pricing.getBoolean("dynamic-pricing.enabled", true);
@@ -235,6 +239,19 @@ public class DefaultPluginSettings implements IPluginSettings {
         // Setup Logger & Locale
         Format.getLog().setLevel(Level.parse(logLevel));
         Format.loadLocale(this.locale);
+
+        warnDefaultCredentials();
+    }
+
+    private void warnDefaultCredentials() {
+        if (!databaseEnabled) { return; }
+        if (databaseUser.startsWith("CHANGEME_") || databasePassword.startsWith("CHANGEME_")) {
+            logger.severe("╔══════════════════════════════════════════════════════════════╗");
+            logger.severe("║  SECURITY WARNING: Default database credentials detected!   ║");
+            logger.severe("║  Change database.user and database.password in config.yml   ║");
+            logger.severe("║  Using default credentials is a critical security risk.     ║");
+            logger.severe("╚══════════════════════════════════════════════════════════════╝");
+        }
     }
 
     // --- GETTERS (Database) ---
@@ -246,6 +263,7 @@ public class DefaultPluginSettings implements IPluginSettings {
     @Override public String getDatabaseUser() { return databaseUser; }
     @Override public String getDatabasePassword() { return databasePassword; }
     @Override public boolean isDatabaseSslEnabled() { return databaseSslEnabled; }
+    @Override public boolean isDatabasePublicKeyRetrieval() { return databasePublicKeyRetrieval; }
     @Override public int getDatabasePoolSize() { return databasePoolSize; }
     @Override public int getDatabaseMinIdle() { return databaseMinIdle; }
     @Override public int getMaxTransactionHistory() { return maxTransactionHistory; }
@@ -305,6 +323,7 @@ public class DefaultPluginSettings implements IPluginSettings {
     @Override public double getTutorialUpdate() { return tutorialUpdate; }
     @Override public boolean isWebServer() { return webServer; }
     @Override public Integer getPort() { return port; }
+    @Override public String getBindAddress() { return bindAddress; }
     @Override public boolean isEnableCollection() { return enableCollection; }
     @Override public boolean isEnableLoans() { return enableLoans; }
     @Override public int getMaxActiveLoans() { return maxActiveLoans; }

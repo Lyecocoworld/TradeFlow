@@ -2,6 +2,7 @@ package com.github.lye.gui;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,49 +42,51 @@ public final class GuiHierarchy {
      * Hierarchy mapping: GUI ID → Parent GUI ID
      * Root GUIs have null parent.
      */
-    private static final Map<String, String> PARENTS = new HashMap<>();
-
+    private static final Map<String, String> PARENTS;
     static {
+        Map<String, String> map = new HashMap<>();
         // === PLAYER GUI HIERARCHY ===
 
         // Root
-        PARENTS.put(NavigationHistory.GuiIds.MAIN_MENU, null);
+        map.put(NavigationHistory.GuiIds.MAIN_MENU, null);
 
         // Utility subtree
-        PARENTS.put(NavigationHistory.GuiIds.UTILITY, NavigationHistory.GuiIds.MAIN_MENU);
-        PARENTS.put(NavigationHistory.GuiIds.LICENSE, NavigationHistory.GuiIds.UTILITY);
-        PARENTS.put(NavigationHistory.GuiIds.STATS_SELECTION, NavigationHistory.GuiIds.UTILITY);
-        PARENTS.put(NavigationHistory.GuiIds.PLAYER_STATS, NavigationHistory.GuiIds.STATS_SELECTION);
-        PARENTS.put(NavigationHistory.GuiIds.SERVER_STATS, NavigationHistory.GuiIds.STATS_SELECTION);
-        PARENTS.put(NavigationHistory.GuiIds.ORGANIZATION_STATS, NavigationHistory.GuiIds.STATS_SELECTION);
+        map.put(NavigationHistory.GuiIds.UTILITY, NavigationHistory.GuiIds.MAIN_MENU);
+        map.put(NavigationHistory.GuiIds.LICENSE, NavigationHistory.GuiIds.UTILITY);
+        map.put(NavigationHistory.GuiIds.STATS_SELECTION, NavigationHistory.GuiIds.UTILITY);
+        map.put(NavigationHistory.GuiIds.PLAYER_STATS, NavigationHistory.GuiIds.STATS_SELECTION);
+        map.put(NavigationHistory.GuiIds.SERVER_STATS, NavigationHistory.GuiIds.STATS_SELECTION);
+        map.put(NavigationHistory.GuiIds.ORGANIZATION_STATS, NavigationHistory.GuiIds.STATS_SELECTION);
 
         // Help subtree
-        PARENTS.put(NavigationHistory.GuiIds.HELP, NavigationHistory.GuiIds.MAIN_MENU);
-        PARENTS.put(NavigationHistory.GuiIds.DOCS, NavigationHistory.GuiIds.HELP);
+        map.put(NavigationHistory.GuiIds.HELP, NavigationHistory.GuiIds.MAIN_MENU);
+        map.put(NavigationHistory.GuiIds.DOCS, NavigationHistory.GuiIds.HELP);
 
         // Shop navigation subtree
-        PARENTS.put(NavigationHistory.GuiIds.SECTION, NavigationHistory.GuiIds.MAIN_MENU);
-        PARENTS.put(NavigationHistory.GuiIds.PURCHASE, NavigationHistory.GuiIds.SECTION);
-        PARENTS.put(NavigationHistory.GuiIds.ENCHANT_LEVELS, NavigationHistory.GuiIds.SECTION);
-        PARENTS.put(NavigationHistory.GuiIds.ENCHANT_PURCHASE, NavigationHistory.GuiIds.ENCHANT_LEVELS);
+        map.put(NavigationHistory.GuiIds.SECTION, NavigationHistory.GuiIds.MAIN_MENU);
+        map.put(NavigationHistory.GuiIds.PURCHASE, NavigationHistory.GuiIds.SECTION);
+        map.put(NavigationHistory.GuiIds.ENCHANT_LEVELS, NavigationHistory.GuiIds.SECTION);
+        map.put(NavigationHistory.GuiIds.ENCHANT_PURCHASE, NavigationHistory.GuiIds.ENCHANT_LEVELS);
 
         // Special GUIs (back to main)
-        PARENTS.put(NavigationHistory.GuiIds.RUMOR, NavigationHistory.GuiIds.MAIN_MENU);
-        PARENTS.put(NavigationHistory.GuiIds.BLACK_MARKET, NavigationHistory.GuiIds.MAIN_MENU);
+        map.put(NavigationHistory.GuiIds.RUMOR, NavigationHistory.GuiIds.MAIN_MENU);
+        map.put(NavigationHistory.GuiIds.BLACK_MARKET, NavigationHistory.GuiIds.MAIN_MENU);
 
         // === ADMIN GUI HIERARCHY ===
 
         // Admin root
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_MAIN, null);
+        map.put(NavigationHistory.GuiIds.ADMIN_MAIN, null);
 
         // Admin subtrees
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_SYSTEM, NavigationHistory.GuiIds.ADMIN_MAIN);
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_ECONOMY, NavigationHistory.GuiIds.ADMIN_MAIN);
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_SHOPS, NavigationHistory.GuiIds.ADMIN_MAIN);
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_TRANSACTIONS, NavigationHistory.GuiIds.ADMIN_MAIN);
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_NOTIFICATIONS, NavigationHistory.GuiIds.ADMIN_MAIN);
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_PLAYERS, NavigationHistory.GuiIds.ADMIN_MAIN);
-        PARENTS.put(NavigationHistory.GuiIds.ADMIN_STATS, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_SYSTEM, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_ECONOMY, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_SHOPS, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_TRANSACTIONS, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_NOTIFICATIONS, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_PLAYERS, NavigationHistory.GuiIds.ADMIN_MAIN);
+        map.put(NavigationHistory.GuiIds.ADMIN_STATS, NavigationHistory.GuiIds.ADMIN_MAIN);
+
+        PARENTS = Collections.unmodifiableMap(map);
     }
 
     /**
@@ -107,7 +110,7 @@ public final class GuiHierarchy {
      * @return true if root, false otherwise
      */
     public static boolean isRoot(@Nullable String guiId) {
-        return guiId != null && PARENTS.get(guiId) == null;
+        return guiId != null && PARENTS.containsKey(guiId) && PARENTS.get(guiId) == null;
     }
 
     /**

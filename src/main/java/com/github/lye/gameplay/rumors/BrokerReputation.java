@@ -13,6 +13,7 @@ import java.io.File;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Manages player reputation with the Shadow Broker.
@@ -91,17 +92,17 @@ public class BrokerReputation {
      */
     public void addReputation(Player player, int points) {
         PlayerReputation rep = getReputation(player);
-        rep.points += points;
-        rep.totalPurchases++;
+        rep.points.addAndGet(points);
+        rep.totalPurchases.incrementAndGet();
         cache.put(player.getUniqueId(), rep);
 
         // Save to player data
-        String data = rep.points + ":" + rep.totalPurchases;
+        String data = rep.points.get() + ":" + rep.totalPurchases.get();
         player.getPersistentDataContainer().set(REPUTATION_KEY, PersistentDataType.STRING, data);
 
         // Check for tier up
-        ReputationTier oldTier = getTier(rep.points - points);
-        ReputationTier newTier = getTier(rep.points);
+        ReputationTier oldTier = getTier(rep.points.get() - points);
+        ReputationTier newTier = getTier(rep.points.get());
 
         if (newTier.ordinal() > oldTier.ordinal()) {
             // Tier up!
@@ -136,7 +137,7 @@ public class BrokerReputation {
      */
     public double getDiscount(Player player) {
         PlayerReputation rep = getReputation(player);
-        ReputationTier tier = getTier(rep.points);
+        ReputationTier tier = getTier(rep.points.get());
         return config.getDouble("reputation.tiers." + tier.name().toLowerCase() + ".discount", tier.getDiscountPercent() / 100.0);
     }
 
@@ -145,7 +146,7 @@ public class BrokerReputation {
      */
     public int getStockBonus(Player player) {
         PlayerReputation rep = getReputation(player);
-        ReputationTier tier = getTier(rep.points);
+        ReputationTier tier = getTier(rep.points.get());
         return config.getInt("reputation.tiers." + tier.name().toLowerCase() + ".stock-bonus", tier.getDiscountPercent() * 2);
     }
 
@@ -173,16 +174,16 @@ public class BrokerReputation {
      * Player reputation data holder.
      */
     public static class PlayerReputation {
-        public int points;
-        public int totalPurchases;
+        public final AtomicInteger points;
+        public final AtomicInteger totalPurchases;
 
         public PlayerReputation(int points, int totalPurchases) {
-            this.points = points;
-            this.totalPurchases = totalPurchases;
+            this.points = new AtomicInteger(points);
+            this.totalPurchases = new AtomicInteger(totalPurchases);
         }
 
-        public int getPoints() { return points; }
-        public int getTotalPurchases() { return totalPurchases; }
+        public int getPoints() { return points.get(); }
+        public int getTotalPurchases() { return totalPurchases.get(); }
     }
 
     /**

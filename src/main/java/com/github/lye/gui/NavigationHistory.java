@@ -8,6 +8,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * Manages navigation history for players.
@@ -84,7 +85,7 @@ public class NavigationHistory {
     public static void push(@NotNull Player player, Entry entry) {
         Deque<Entry> history = playerHistories.computeIfAbsent(
                 player.getUniqueId(),
-                k -> new ArrayDeque<>()
+                k -> new ConcurrentLinkedDeque<>()
         );
         history.push(entry);
     }
@@ -200,13 +201,12 @@ public class NavigationHistory {
         push(player, entry);
     }
 
-    /**
-     * Removes history for a disconnected player (cleanup).
-     *
-     * @param playerId The player's UUID
-     */
     public static void cleanup(UUID playerId) {
         playerHistories.remove(playerId);
+    }
+
+    public static void clearAll() {
+        playerHistories.clear();
     }
 
     /**

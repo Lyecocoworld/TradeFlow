@@ -1,11 +1,18 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
 import com.github.lye.data.ShopUtil;
+import com.github.lye.service.IMessageService;
+import com.github.lye.config.settings.IMessageSettings;
+import com.github.lye.config.settings.IPluginSettings;
+import com.github.lye.service.TradeExecutionService;
 import com.github.lye.events.ChestSellSelector;
 import com.github.lye.gui.state.PlayerShopState;
+import com.github.lye.util.EconomyUtil;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -124,7 +131,7 @@ public class PurchaseEnchantGui {
         buildShowcase();
         buildAmountButtons();
         buildBuySellButtons();
-        gui.update();
+        TriumphGuiAdapter.updateSafe(gui, viewer, plugin);
     }
 
     private void buildBuySellButtons() {
@@ -134,22 +141,21 @@ public class PurchaseEnchantGui {
         int level = state.getEnchantLevel();
         int amount = state.getAmount();
 
-        Shop shop = plugin.getShopUtil().getShop(enchantShopName, true);
+        Shop shop = plugin.getServices().get(ShopUtil.class).getShop(enchantShopName, true);
         double unitPrice = (shop != null) ? shop.getPrice() * level : 0.0;
 
         int buysLeft = 0;
         String buysLeftStr = "0";
         if (shop != null) {
             int maxBuys = shop.getMaxBuys();
-            buysLeft = plugin.getShopUtil().getBuysLeft(viewer, enchantShopName);
+            buysLeft = plugin.getServices().get(ShopUtil.class).getBuysLeft(viewer, enchantShopName);
             buysLeftStr = (maxBuys < 0 ? "∞" : Integer.toString(buysLeft));
         }
 
-        // BUY
         ItemStack buyBtn = new ItemStack(Material.EMERALD);
         List<Component> buyLore = new ArrayList<>();
 
-        for (String line : plugin.getMessageSettings().getPurchaseEnchantLore()) {
+        for (String line : plugin.getServices().get(IMessageSettings.class).getPurchaseEnchantLore()) {
             TagResolver resolver = TagResolver.resolver(
                     Placeholder.parsed("price", Format.currency(unitPrice)),
                     Placeholder.parsed("total-price", Format.currency(unitPrice * amount)),
@@ -169,21 +175,28 @@ public class PurchaseEnchantGui {
 
         gui.setItem(29, new GuiItem(buyBtn, event -> {
             Player player = (Player) event.getWhoClicked();
-            int amt = state.getAmount();
-
-            if (plugin.getPluginSettings().isEnableSellLimits()) {
-                int left = plugin.getDatabase().getPurchasesLeft(enchantShopName, player.getUniqueId(), true);
-                if (left - amt < 0) {
-                    TagResolver rr = plugin.getPurchaseUtil().getTagResolver(
-                              Shop.getDisplayName(enchantShopName, true),
-                              unitPrice,
-                              amt,
-                              plugin.getEconomy().getBalance(player));
-                    plugin.getMessageService().sendErrorMessage(player, plugin.getMessageSettings().getRunOutOfBuys(), rr);
-                    return;
-                }
+            if (!TransactionLock.tryAcquire(player.getUniqueId())) {
+                return; // Already processing a purchase — debounce
             }
-            plugin.getPurchaseUtil().purchaseEnchantment(enchantShopName, player, level, amt);
+            try {
+                int amt = state.getAmount();
+
+                if (plugin.getServices().get(IPluginSettings.class).isEnableSellLimits()) {
+                    int left = plugin.getServices().get(Database.class).getPurchasesLeft(enchantShopName, player.getUniqueId(), true);
+                    if (left - amt < 0) {
+                        TagResolver rr = plugin.getServices().get(TradeExecutionService.class).getTagResolver(
+                                  Shop.getDisplayName(enchantShopName, true),
+                                  unitPrice,
+                                  amt,
+                                  EconomyUtil.getEconomy().getBalance(player));
+                        plugin.getServices().get(IMessageService.class).sendErrorMessage(player, plugin.getServices().get(IMessageSettings.class).getRunOutOfBuys(), rr);
+                        return;
+                    }
+                }
+                plugin.getServices().get(TradeExecutionService.class).executeEnchantmentPurchase(enchantShopName, player, level, amt);
+            } finally {
+                TransactionLock.release(player.getUniqueId());
+            }
         }));
 
         // SELL PANEL
@@ -215,6 +228,6 @@ public class PurchaseEnchantGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

@@ -1,8 +1,13 @@
 package com.github.lye.gui;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.data.CentralBankStockManager;
+import com.github.lye.data.Database;
 import com.github.lye.data.Shop;
+import com.github.lye.service.TradeExecutionService;
+import com.github.lye.gameplay.ReputationManager;
 import com.github.lye.util.Format;
+import com.github.lye.gui.framework.TriumphGuiAdapter;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
@@ -37,13 +42,14 @@ public class PublicOrderGui {
     }
 
     private void buildContent(Player player) {
-        boolean isInsider = plugin.getReputationManager().isInsider(player.getUniqueId());
+        boolean isInsider = plugin.getServices().get(ReputationManager.class).isInsider(player.getUniqueId());
+        CentralBankStockManager bankMgr = plugin.getServices().get(CentralBankStockManager.class);
         int slot = 10;
 
-        for (Shop shop : plugin.getLoadedShops().values()) {
+        for (Shop shop : plugin.getServices().get(Database.class).getShops().values()) {
             if (shop.getGlobalStockLimit() <= 0) continue;
 
-            int currentStock = plugin.getCentralBankStockManager().getCurrentStock(shop);
+            int currentStock = bankMgr.getCurrentStock(shop);
             int idealStock = shop.getGlobalStockLimit();
             
             boolean isCritical = currentStock < (idealStock * 0.25);
@@ -82,8 +88,7 @@ public class PublicOrderGui {
                         player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Vous n'avez pas le bon item en main !</red>"));
                         return;
                     }
-                    // Trigger normal sell with bonus logic already in PurchaseUtil
-                    plugin.getPurchaseUtil().sellItemStack(hand, player);
+                    plugin.getServices().get(TradeExecutionService.class).executeSellItemStack(hand, player);
                     player.getInventory().setItemInMainHand(null);
                     new PublicOrderGui(plugin, player).open(player); // Refresh
                 }));
@@ -98,6 +103,6 @@ public class PublicOrderGui {
     }
 
     public void open(Player player) {
-        gui.open(player);
+        TriumphGuiAdapter.openSafe(gui, player, plugin);
     }
 }

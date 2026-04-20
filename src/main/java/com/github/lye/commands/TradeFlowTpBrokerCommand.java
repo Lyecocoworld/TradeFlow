@@ -27,7 +27,7 @@ public class TradeFlowTpBrokerCommand extends SubCommand {
         }
         Player player = (Player) sender;
 
-        Location brokerLoc = plugin.getRumorManager().getCurrentBrokerLocation();
+        Location brokerLoc = plugin.getServices().get(com.github.lye.gameplay.rumors.RumorManager.class).getCurrentBrokerLocation();
         if (brokerLoc == null) {
             player.sendMessage(MiniMessage.miniMessage().deserialize("<red>The Shadow Broker is currently hidden (Day time or not spawned).</red>"));
             return true;

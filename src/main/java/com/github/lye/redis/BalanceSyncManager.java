@@ -1,6 +1,7 @@
 package com.github.lye.redis;
 
 import com.github.lye.TradeFlow;
+import com.github.lye.config.settings.IPluginSettings;
 import com.github.lye.redis.messages.BinaryMessage;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
@@ -47,7 +48,7 @@ public class BalanceSyncManager {
     public BalanceSyncManager(TradeFlow plugin, RedisClient redisClient) {
         this.plugin = plugin;
         this.redisClient = redisClient;
-        this.serverId = plugin.getPluginSettings().getRedisServerId();
+        this.serverId = plugin.getServices().get(IPluginSettings.class).getRedisServerId();
         this.economy = plugin.getServer().getServicesManager().getRegistration(Economy.class).getProvider();
         this.localVersions = new ConcurrentHashMap<>();
         this.pendingUpdates = new ConcurrentHashMap<>();
@@ -151,51 +152,57 @@ public class BalanceSyncManager {
         }
 
         // Check version
-        long currentVersion = getCurrentVersion(playerIdStr);
-        if (message.getVersion() <= currentVersion) {
-            LOGGER.fine("Ignoring stale balance update: " + playerIdStr + " v" + message.getVersion() + " <= v" + currentVersion);
+        long initialVersion = getCurrentVersion(playerIdStr);
+        if (message.getVersion() <= initialVersion) {
+            LOGGER.fine("Ignoring stale balance update: " + playerIdStr + " v" + message.getVersion() + " <= v" + initialVersion);
             return;
         }
 
         // Use distributed lock to prevent concurrent modifications
         String lockKey = "tradeflow:balance:update:" + playerIdStr;
-        try (DistributedLock lock = new DistributedLock(redisClient, lockKey, 5000)) {
-            if (!lock.tryLock(1000)) {
-                LOGGER.warning("Could not acquire lock for balance update: " + playerIdStr);
-                return;
-            }
-
-            // Double-check version with lock held
-            currentVersion = getCurrentVersion(playerIdStr);
-            if (message.getVersion() <= currentVersion) {
-                return;
-            }
-
-            // Get current balance from economy
-            OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
-            double currentBalance = economy.getBalance(player);
-
-            // Apply delta
-            double delta = message.getDelta();
-            double targetBalance = currentBalance + delta;
-
-            // Withdraw or deposit through economy
-            if (delta > 0) {
-                economy.depositPlayer(player, delta);
-            } else if (delta < 0) {
-                // Only withdraw if player has enough
-                if (economy.has(player, Math.abs(delta))) {
-                    economy.withdrawPlayer(player, Math.abs(delta));
+        DistributedLock lock = new DistributedLock(redisClient, lockKey, 5000);
+        lock.tryLockAsync(1000, plugin).thenAccept(acquired -> {
+            try {
+                if (!acquired) {
+                    LOGGER.warning("Could not acquire lock for balance update: " + playerIdStr);
+                    return;
                 }
+
+                // Double-check version with lock held
+                long lockedVersion = getCurrentVersion(playerIdStr);
+                if (message.getVersion() <= lockedVersion) {
+                    return;
+                }
+
+                // Get current balance from economy
+                OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
+                double currentBalance = economy.getBalance(player);
+
+                // Apply delta
+                double delta = message.getDelta();
+
+                // Withdraw or deposit through economy
+                if (delta > 0) {
+                    economy.depositPlayer(player, delta);
+                } else if (delta < 0) {
+                    // Only withdraw if player has enough
+                    if (economy.has(player, Math.abs(delta))) {
+                        economy.withdrawPlayer(player, Math.abs(delta));
+                    }
+                }
+
+                // Update version
+                localVersions.put(playerIdStr, new AtomicLong(message.getVersion()));
+
+                LOGGER.info("Applied balance update from " + message.getServerId() + ": " + playerIdStr + " " + delta + " (" + message.getReason() + ")");
+            } finally {
+                lock.unlock();
             }
-
-            // Update version
-            localVersions.put(playerIdStr, new AtomicLong(message.getVersion()));
-
-            LOGGER.info("Applied balance update from " + message.getServerId() + ": " + playerIdStr + " " + delta + " (" + message.getReason() + ")");
-        } catch (Exception e) {
-            LOGGER.warning("Error applying balance update for " + playerIdStr + ": " + e.getMessage());
-        }
+        }).exceptionally(ex -> {
+            LOGGER.warning("Error applying balance update for " + playerIdStr + ": " + ex.getMessage());
+            lock.unlock();
+            return null;
+        });
     }
 
     /**
@@ -251,5 +258,13 @@ public class BalanceSyncManager {
             this.reason = reason;
             this.timestamp = timestamp;
         }
+    }
+
+    public void shutdown() {
+        int versions = localVersions.size();
+        int pending = pendingUpdates.size();
+        localVersions.clear();
+        pendingUpdates.clear();
+        LOGGER.info("BalanceSyncManager shut down — cleared " + versions + " versions, " + pending + " pending updates");
     }
 }

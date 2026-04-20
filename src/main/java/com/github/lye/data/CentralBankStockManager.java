@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manages the virtual stock of the Central Bank.
@@ -29,7 +30,7 @@ public class CentralBankStockManager {
 
     private final Map<String, Integer> stockLevels = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, Double> activityScores = new java.util.concurrent.ConcurrentHashMap<>(); 
-    private volatile double monetaryReserve = -1; // Internal cash reserve — volatile for cross-thread visibility
+    private final AtomicReference<Double> monetaryReserve = new AtomicReference<>(-1.0); // Internal cash reserve — thread-safe
 
     public CentralBankStockManager(TradeFlow plugin, GlobalStockRepository globalStockRepository, Database database, IPluginSettings pluginSettings, IPricingSettings pricingSettings) {
         this.plugin = plugin;
@@ -46,8 +47,8 @@ public class CentralBankStockManager {
             globalStockRepository.loadAllStockData(stockLevels, dummyTimestamps);
             
             // Monetary reserve loading for MySQL
-            if (plugin.isMySqlEnabled() && plugin.getServerStateData() != null) {
-                this.monetaryReserve = plugin.getServerStateData().getMonetaryReserve();
+            if (plugin.getBootstrap().getDatabaseBootstrap().isMySqlEnabled() && plugin.getBootstrap().getDatabaseBootstrap().getServerStateData() != null) {
+                this.monetaryReserve.set(plugin.getBootstrap().getDatabaseBootstrap().getServerStateData().getMonetaryReserve().join());
             }
         } else {
             this.stockFile = new File(plugin.getDataFolder(), "central_bank_stock.yml");
@@ -56,12 +57,12 @@ public class CentralBankStockManager {
                 if (oldFile.exists()) {
                     oldFile.renameTo(stockFile);
                 } else {
-                    try { stockFile.createNewFile(); } catch (IOException e) { e.printStackTrace(); }
+                    try { stockFile.createNewFile(); } catch (IOException e) { plugin.getLogger().severe("[CentralBank] Could not create stock file: " + e.getMessage()); }
                 }
             }
             this.stockConfig = YamlConfiguration.loadConfiguration(stockFile);
             
-            this.monetaryReserve = stockConfig.getDouble("system.monetary-reserve", -1);
+            this.monetaryReserve.set(stockConfig.getDouble("system.monetary-reserve", -1));
 
             for (String key : stockConfig.getKeys(false)) {
                 if (key.equals("system")) continue;
@@ -74,10 +75,10 @@ public class CentralBankStockManager {
         }
         
         // Initial setup if reserve is -1 OR if it's 0 but we have shops (meaning it likely failed to init)
-        if (this.monetaryReserve <= 0) {
+        if (this.monetaryReserve.get() <= 0) {
             double calculated = calculateRequiredLiquidity();
             if (calculated > 0) {
-                this.monetaryReserve = calculated;
+                this.monetaryReserve.set(calculated);
                 // plugin.getLogger().info("[CentralBank] Initialized internal monetary reserve: " + monetaryReserve);
                 save();
             }
@@ -90,37 +91,36 @@ public class CentralBankStockManager {
                 globalStockRepository.saveStock(entry.getKey(), entry.getValue(), 0L);
             }
             // Save monetary reserve to MySQL as well
-            if (plugin.isMySqlEnabled() && plugin.getServerStateData() != null) {
-                plugin.getServerStateData().saveMonetaryReserve(monetaryReserve);
+            if (plugin.getBootstrap().getDatabaseBootstrap().isMySqlEnabled() && plugin.getBootstrap().getDatabaseBootstrap().getServerStateData() != null) {
+                plugin.getBootstrap().getDatabaseBootstrap().getServerStateData().saveMonetaryReserve(monetaryReserve.get());
             }
         }
         
         if (stockFile != null) {
-            stockConfig.set("system.monetary-reserve", monetaryReserve);
+            stockConfig.set("system.monetary-reserve", monetaryReserve.get());
             for (Map.Entry<String, Integer> entry : stockLevels.entrySet()) {
                 stockConfig.set(entry.getKey() + ".level", entry.getValue());
             }
-            try { stockConfig.save(stockFile); } catch (IOException e) { e.printStackTrace(); }
+            try { stockConfig.save(stockFile); } catch (IOException e) { plugin.getLogger().severe("[CentralBank] Could not save stock data: " + e.getMessage()); }
         }
     }
 
-    public synchronized double getMonetaryReserve() {
-        return monetaryReserve;
+    public double getMonetaryReserve() {
+        return monetaryReserve.get();
     }
 
-    public synchronized void setMonetaryReserve(double amount) {
-        this.monetaryReserve = amount;
-        save();
-    }
-
-    public synchronized void addMoney(double amount) {
-        this.monetaryReserve += amount;
+    public void setMonetaryReserve(double amount) {
+        this.monetaryReserve.set(amount);
         saveAsyncInternal();
     }
 
-    public synchronized void removeMoney(double amount) {
-        this.monetaryReserve -= amount;
-        if (this.monetaryReserve < 0) this.monetaryReserve = 0;
+    public void addMoney(double amount) {
+        monetaryReserve.updateAndGet(current -> current + amount);
+        saveAsyncInternal();
+    }
+
+    public void removeMoney(double amount) {
+        monetaryReserve.updateAndGet(current -> Math.max(0, current - amount));
         saveAsyncInternal();
     }
 
@@ -141,26 +141,24 @@ public class CentralBankStockManager {
      */
     public int getCurrentStock(Shop shop) {
         String itemName = shop.getName();
-        if (stockLevels.containsKey(itemName)) {
-            return stockLevels.get(itemName);
-        }
-        
-        // Use the larger of the two quotas for a balanced startup reserve
-        int dailyPlayerQuota = Math.max(shop.getMaxBuys(), shop.getMaxSells());
-        if (dailyPlayerQuota <= 0) dailyPlayerQuota = pricingSettings.getDefaultDailyQuota(); 
-        
-        int population = pluginSettings.getTargetPopulation();
-        if (population <= 0) population = pricingSettings.getDefaultPopulation();
-        
-        int days = getStockTargetDays();
 
-        int calculatedInitial = (int) (dailyPlayerQuota * population * 0.05 * days);
-        if (calculatedInitial <= 0) calculatedInitial = pricingSettings.getDefaultInitialStock(); 
-        
-        int initialStock = (shop.getGlobalStockLimit() > 0) ? shop.getGlobalStockLimit() : calculatedInitial;
+        // Use computeIfAbsent for atomic lazy-initialisation (prevents race where two
+        // threads both see "absent" and each inserts a different initial value).
+        return stockLevels.computeIfAbsent(itemName, key -> {
+            // Use the larger of the two quotas for a balanced startup reserve
+            int dailyPlayerQuota = Math.max(shop.getMaxBuys(), shop.getMaxSells());
+            if (dailyPlayerQuota <= 0) dailyPlayerQuota = pricingSettings.getDefaultDailyQuota();
 
-        stockLevels.put(itemName, initialStock);
-        return initialStock;
+            int population = pluginSettings.getTargetPopulation();
+            if (population <= 0) population = pricingSettings.getDefaultPopulation();
+
+            int days = getStockTargetDays();
+
+            int calculatedInitial = (int) (dailyPlayerQuota * population * 0.05 * days);
+            if (calculatedInitial <= 0) calculatedInitial = pricingSettings.getDefaultInitialStock();
+
+            return (shop.getGlobalStockLimit() > 0) ? shop.getGlobalStockLimit() : calculatedInitial;
+        });
     }
 
     /**
@@ -210,10 +208,10 @@ public class CentralBankStockManager {
 
     /**
      * Checks if a Public Order (Commande Publique) is active for this item.
-     * Active when stock is below 25% of the ideal level.
+     * Active when stock is below the configured threshold ratio of the ideal level.
      */
     public boolean isPublicOrderActive(Shop shop) {
-        return getCurrentStock(shop) < (getIdealStock(shop) * 0.25);
+        return getCurrentStock(shop) < (getIdealStock(shop) * pricingSettings.getPublicOrderThreshold());
     }
 
     /**
@@ -253,17 +251,17 @@ public class CentralBankStockManager {
 
     public double getDynamicSpread(String itemName) {
         double activity = activityScores.getOrDefault(itemName, 0.0);
-        double baseSpread = Math.min(0.5, activity / 5000.0); 
-        return Math.min(0.8, baseSpread * currentPolicy.getTaxMultiplier());
+        double baseSpread = Math.min(pricingSettings.getDynamicSpreadMaxBase(), activity / pricingSettings.getDynamicSpreadActivityDivisor());
+        return Math.min(pricingSettings.getDynamicSpreadMaxFinal(), baseSpread * currentPolicy.getTaxMultiplier());
     }
 
     public void recordSale(Shop shop, int amount) {
         String itemName = shop.getName();
-        int current = getCurrentStock(shop);
-        int newStock = current + amount;
         updateActivity(itemName, amount);
-        stockLevels.put(itemName, newStock);
-        
+        // Atomic read-modify-write — prevents lost updates from concurrent trades
+        int newStock = stockLevels.compute(itemName, (key, current) ->
+                (current != null ? current : getCurrentStock(shop)) + amount);
+
         if (globalStockRepository != null) {
             saveAsync(itemName, newStock);
         } else {
@@ -273,12 +271,11 @@ public class CentralBankStockManager {
 
     public void recordBuy(Shop shop, int amount) {
         String itemName = shop.getName();
-        int current = getCurrentStock(shop);
-        int newStock = current - amount;
         updateActivity(itemName, amount);
-        if (newStock < 0) newStock = 0; 
-        stockLevels.put(itemName, newStock);
-        
+        // Atomic read-modify-write with floor at 0 — prevents lost updates from concurrent trades
+        int newStock = stockLevels.compute(itemName, (key, current) ->
+                Math.max(0, (current != null ? current : getCurrentStock(shop)) - amount));
+
         if (globalStockRepository != null) {
             saveAsync(itemName, newStock);
         } else {
@@ -287,14 +284,14 @@ public class CentralBankStockManager {
     }
 
     private void updateActivity(String itemName, int amount) {
-        double currentActivity = activityScores.getOrDefault(itemName, 0.0);
         double alpha = pricingSettings.getActivityAlpha();
-        activityScores.put(itemName, (currentActivity * (1.0 - alpha)) + (amount * alpha));
+        activityScores.compute(itemName, (key, current) ->
+                (current != null ? current : 0.0) * (1.0 - alpha) + (amount * alpha));
     }
     
     public void applyExternalSale(String itemName, int amount) {
-        int current = stockLevels.getOrDefault(itemName, 0);
-        stockLevels.put(itemName, current + amount);
+        stockLevels.compute(itemName, (key, current) ->
+                (current != null ? current : 0) + amount);
     }
 
     /**

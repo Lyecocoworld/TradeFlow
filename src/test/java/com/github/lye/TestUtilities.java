@@ -3,13 +3,17 @@ package com.github.lye;
 import com.github.lye.data.Shop;
 import com.github.lye.data.Transaction;
 import com.github.lye.data.Loan;
+import com.github.lye.registry.ServiceRegistry;
+import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Utility class for providing mock objects in tests.
@@ -184,5 +188,52 @@ public final class TestUtilities {
      */
     public static TradeFlow mockPlugin() {
         return Mockito.mock(TradeFlow.class);
+    }
+
+    /**
+     * Creates a TradeFlow plugin mock with a ServiceRegistry.
+     *
+     * @return a mock TradeFlow plugin with services configured
+     */
+    public static TradeFlow mockPluginWithServices() {
+        TradeFlow plugin = Mockito.mock(TradeFlow.class);
+        ServiceRegistry registry = Mockito.mock(ServiceRegistry.class);
+        Mockito.when(plugin.getServices()).thenReturn(registry);
+        return plugin;
+    }
+
+    /**
+     * Creates a mock Player whose EntityScheduler executes tasks synchronously.
+     * This is required for testing code that uses {@code player.getScheduler().run(...)}.
+     *
+     * @param uuid the player UUID
+     * @return a mock Player with synchronous scheduler execution
+     */
+    @SuppressWarnings("unchecked")
+    public static Player mockPlayerWithScheduler(UUID uuid) {
+        Player player = mockPlayer(uuid);
+        EntityScheduler scheduler = Mockito.mock(EntityScheduler.class);
+
+        Mockito.when(scheduler.run(
+                Mockito.any(Plugin.class),
+                Mockito.any(Consumer.class),
+                Mockito.any()
+        )).thenAnswer(invocation -> {
+            Consumer<Object> task = invocation.getArgument(1);
+            task.accept(Mockito.mock(io.papermc.paper.threadedregions.scheduler.ScheduledTask.class));
+            return Mockito.mock(io.papermc.paper.threadedregions.scheduler.ScheduledTask.class);
+        });
+
+        Mockito.when(player.getScheduler()).thenReturn(scheduler);
+        return player;
+    }
+
+    /**
+     * Creates a mock Player with random UUID and synchronous scheduler.
+     *
+     * @return a mock Player with synchronous scheduler execution
+     */
+    public static Player mockPlayerWithScheduler() {
+        return mockPlayerWithScheduler(UUID.randomUUID());
     }
 }

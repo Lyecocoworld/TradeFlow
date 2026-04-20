@@ -42,10 +42,9 @@ public class ConfigLoaderService {
      * @throws com.github.lye.error.ConfigurationException if configuration is invalid
      */
     public void loadAll() {
-        plugin.getTradeLogger().config("Loading configuration modules...");
+        plugin.getServices().getTradeFlowLogger().config("Loading configuration modules...");
 
-        // Initialize Config if not already done
-        Config.init(plugin, plugin.getTradeLogger());
+        Config.init(plugin, plugin.getServices().getTradeFlowLogger());
 
         Config loadedConfig = Config.get();
         if (loadedConfig == null) {
@@ -63,13 +62,12 @@ public class ConfigLoaderService {
 
         this.taxSettings = new com.github.lye.config.settings.impl.DefaultTaxSettings(
             Config.getPricingModule(),
-            plugin.getTradeLogger()
+            plugin.getServices().getTradeFlowLogger()
         );
 
-        // Validate all settings
         validate();
 
-        plugin.getTradeLogger().config("Configuration loaded successfully");
+        plugin.getServices().getTradeFlowLogger().config("Configuration loaded successfully");
     }
 
     /**
@@ -99,7 +97,7 @@ public class ConfigLoaderService {
             loadAll();
             return true;
         } catch (Exception e) {
-            plugin.getTradeLogger().severe("Failed to reload configuration: " + e.getMessage());
+            plugin.getServices().getTradeFlowLogger().severe("Failed to reload configuration: " + e.getMessage());
             return false;
         }
     }
